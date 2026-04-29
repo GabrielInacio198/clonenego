@@ -132,26 +132,49 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           characterData: true
         });
 
-        // Interceptar clicks globalmente para redirecionamentos via JS (window.location / router)
+        // HACK: Interceptação Agressiva de Checkout
+        const forceCheckout = () => {
+          if (window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__']) {
+            console.log("God Mode: Redirecionando para checkout forçado...");
+            window.location.href = window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
+          }
+        };
+
+        // Interceptar clicks em qualquer coisa que pareça um gatilho de checkout
         document.addEventListener('click', (e) => {
-           if (window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__']) {
-              const target = e.target.closest('a, button, div');
-              // Se o elemento parecer um botão final de checkout (texto ou classe comum)
-              if (target && target.textContent && target.textContent.toLowerCase().includes('comprar')) {
-                 // É muito arriscado bloquear todos os cliques, então faremos override silencioso do window.open
-              }
-           }
+          if (!window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__']) return;
+          
+          const target = e.target.closest('a, button, div[role="button"]');
+          if (!target) return;
+
+          const text = target.textContent?.toLowerCase() || '';
+          const href = target.getAttribute('href') || '';
+          
+          // Se o texto contiver palavras de checkout ou o link for para um checkout conhecido
+          const isCheckoutTrigger = 
+            text.includes('comprar') || 
+            text.includes('checkout') || 
+            text.includes('receber agora') ||
+            text.includes('obter acesso') ||
+            href.includes('pay.') || 
+            href.includes('checkout');
+
+          if (isCheckoutTrigger) {
+            e.preventDefault();
+            e.stopPropagation();
+            forceCheckout();
+          }
         }, true);
 
-        // Hook window.open para checkouts via JS
-        const origOpenUrl = window.open;
+        // Hook window.open e window.location via Proxy de Navegação
+        const origOpen = window.open;
         window.open = function(url, target, features) {
-           if (window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'] && typeof url === 'string') {
-              if (url.includes('pay.') || url.includes('checkout')) {
-                  return origOpenUrl.call(window, window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'], target, features);
-              }
-           }
-           return origOpenUrl.call(window, url, target, features);
+          if (window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'] && typeof url === 'string') {
+            if (url.includes('pay.') || url.includes('checkout') || !url.includes(window.location.hostname)) {
+              return origOpen.call(window, window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'], target, features);
+            }
+          }
+          return origOpen.call(window, url, target, features);
         };
 
         // Inject Pixel Script se existir

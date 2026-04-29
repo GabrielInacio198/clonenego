@@ -49,14 +49,18 @@ export async function PUT(req: Request) {
 }
 export async function POST(req: Request) {
   try {
-    const { quizId, theme_config } = await req.json();
+    const { quizId, theme_config, name } = await req.json();
+
+    const updatePayload: any = {
+      theme_config,
+      updated_at: new Date().toISOString()
+    };
+
+    if (name) updatePayload.name = name;
 
     const { error: quizError } = await supabaseAdmin
       .from('quizzes')
-      .update({
-        theme_config,
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', quizId);
 
     if (quizError) throw quizError;

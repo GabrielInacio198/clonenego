@@ -127,6 +127,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
   };
 
   const [customDomain, setCustomDomain] = useState<string>(initialQuiz.theme_config?.custom_domain || '');
+  const [quizName, setQuizName] = useState(initialQuiz.name);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -136,6 +137,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           quizId: initialQuiz.id,
+          name: quizName,
           theme_config: {
             ...initialQuiz.theme_config,
             replacements,
@@ -160,9 +162,13 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
       {/* Sidebar de Ferramentas */}
       <div className="w-80 bg-white border-r border-gray-200 flex flex-col shadow-sm z-10">
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900 truncate" title={initialQuiz.name}>
-            Editor Visual: {initialQuiz.name}
-          </h2>
+          <input 
+            type="text"
+            value={quizName}
+            onChange={(e) => setQuizName(e.target.value)}
+            className="text-xl font-bold text-gray-900 w-full bg-transparent border-none focus:ring-1 focus:ring-blue-500 rounded px-1 -ml-1"
+            placeholder="Nome do Quiz"
+          />
           <p className="text-sm text-gray-500 mt-1 truncate">
             {initialQuiz.original_url}
           </p>
