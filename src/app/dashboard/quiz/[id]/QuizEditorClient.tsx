@@ -60,23 +60,21 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
           e.preventDefault();
           e.stopPropagation();
           
-          let target = e.target.closest('a, button, img, h1, h2, h3, p, span, div');
+          let target = e.target.closest('a, button, img, [role="button"], .btn, .button');
           if (!target) return;
 
           let originalValue = '';
           let type = 'TEXT';
 
-          // Detectar Imagem
-          if (target.tagName === 'IMG') {
+          // Se for botão ou link, tratamos como LINK para permitir checkout
+          if (target.tagName === 'A' || target.tagName === 'BUTTON' || target.getAttribute('role') === 'button' || target.classList.contains('btn')) {
+             originalValue = target.getAttribute('href') || target.textContent.trim() || 'Botão sem link';
+             type = 'LINK';
+          } 
+          else if (target.tagName === 'IMG') {
              originalValue = target.getAttribute('src') || '';
              type = 'IMAGE';
           } 
-          // Detectar Link (href)
-          else if (target.tagName === 'A' || target.hasAttribute('href')) {
-             originalValue = target.getAttribute('href') || '';
-             type = 'LINK';
-          }
-          // Detectar Texto
           else {
             let textNode = Array.from(target.childNodes).find((n: any) => n.nodeType === 3 && n.nodeValue.trim() !== '');
             originalValue = textNode ? (textNode as any).nodeValue.trim() : target.textContent.trim();
