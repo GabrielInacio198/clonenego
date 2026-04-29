@@ -140,20 +140,22 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         });
 
         // HACK: Interceptação Agressiva de Checkout
-        const forceCheckout = (e) => {
-          if (window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__']) {
+        const forceCheckout = (e, targetUrl = '') => {
+          const checkoutUrl = window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
+          if (checkoutUrl) {
             if (e && e.preventDefault) e.preventDefault();
             if (e && e.stopPropagation) e.stopPropagation();
-            console.log("God Mode: Redirecionando para checkout forçado...");
-            window.location.href = window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
+            console.log("God Mode: Bloqueando saída para " + targetUrl + " e forçando checkout...");
+            window.location.href = checkoutUrl;
             return true;
           }
           return false;
         };
 
-        // Interceptar clicks em qualquer coisa que pareça um gatilho de checkout
+        // 1. Interceptar Cliques
         document.addEventListener('click', (e) => {
-          if (!window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__']) return;
+          const checkoutUrl = window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
+          if (!checkoutUrl) return;
           
           const target = e.target.closest('a, button, [role="button"], div, span');
           if (!target) return;
@@ -161,21 +163,46 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           const text = target.textContent?.toLowerCase() || '';
           const href = target.getAttribute('href') || '';
           
-          // Se o texto contiver palavras de checkout ou o link for para um checkout conhecido
           const isCheckoutTrigger = 
             text.includes('comprar') || 
-            text.includes('checkout') || 
-            text.includes('receber agora') ||
-            text.includes('obter acesso') ||
-            text.includes('receber o meu') ||
+            text.includes('receber') || 
+            text.includes('obter') ||
+            text.includes('acesso') ||
             href.includes('pay.') || 
             href.includes('checkout') ||
-            href.includes('cakto');
+            href.includes('kirvano') ||
+            href.includes('cakto') ||
+            href.includes('perfectpay');
 
           if (isCheckoutTrigger) {
-            forceCheckout(e);
+            forceCheckout(e, href);
           }
         }, true);
+
+        // 2. Interceptar window.open
+        const _origOpen = window.open;
+        window.open = function(url, target, features) {
+          const checkoutUrl = window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
+          if (checkoutUrl && url && (url.includes('kirvano') || url.includes('pay.') || url.includes('checkout'))) {
+            console.log("God Mode: Bloqueando window.open para checkout");
+            window.location.href = checkoutUrl;
+            return null;
+          }
+          return _origOpen.apply(this, arguments);
+        };
+
+        // 3. Interceptar Fetch (para sites que criam sessão de checkout)
+        const _origFetch = window.fetch;
+        window.fetch = function(input, init) {
+          const url = typeof input === 'string' ? input : input?.url;
+          const checkoutUrl = window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
+          if (checkoutUrl && url && (url.includes('kirvano') || url.includes('checkout/create'))) {
+             console.log("God Mode: Interceptando fetch de checkout");
+             forceCheckout();
+             return new Promise(() => {}); // Mata a requisição
+          }
+          return _origFetch.apply(this, arguments);
+        };
 
         // Hook window.open e window.location via Proxy de Navegação
         const origOpen = window.open;
