@@ -351,7 +351,10 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                                 const newRepls = { ...replacements };
                                 delete newRepls[orig];
                                 setReplacements(newRepls);
-                                if (editingText?.original === orig) setEditingText(null);
+                                // Corrigir tipagem TS
+                                if (editingText && (editingText as any).original === orig) {
+                                  setEditingText(null);
+                                }
                               }}
                               className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
                               title="Remover esta alteração"
