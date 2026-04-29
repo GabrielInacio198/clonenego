@@ -56,7 +56,7 @@ function LoginContent() {
             <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg mb-4">
               <Shield size={32} className="text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-white">Quiz Cloner</h1>
+            <h1 className="text-2xl font-bold text-white">SnapFunnel</h1>
             <p className="text-blue-300 text-sm mt-1">Área Restrita — Somente Administrador</p>
           </div>
 
