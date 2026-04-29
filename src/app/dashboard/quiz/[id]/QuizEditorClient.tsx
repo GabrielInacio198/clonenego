@@ -490,7 +490,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                   Scripts do Head (Cabeçalho)
                 </label>
                 <textarea 
-                  className="w-full rounded-lg border-gray-300 border p-3 text-sm h-32"
+                  className="w-full rounded-lg border-gray-300 border p-3 text-sm h-32 bg-white text-gray-900 font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-inner"
                   placeholder="<script>... Código do Pixel ou Utmify ...</script>"
                   value={headScripts}
                   onChange={(e) => setHeadScripts(e.target.value)}
@@ -503,7 +503,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                   Scripts do Body (Rodapé)
                 </label>
                 <textarea 
-                  className="w-full rounded-lg border-gray-300 border p-3 text-sm h-32"
+                  className="w-full rounded-lg border-gray-300 border p-3 text-sm h-32 bg-white text-gray-900 font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-inner"
                   placeholder="<script>... Scripts que carregam no final ...</script>"
                   value={bodyScripts}
                   onChange={(e) => setBodyScripts(e.target.value)}
