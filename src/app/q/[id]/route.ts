@@ -159,9 +159,14 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
           const text = target.textContent?.toLowerCase() || '';
           const href = target.getAttribute('href') || '';
+          const btnId = target.getAttribute('id') || '';
+          const btnClass = target.getAttribute('class') || '';
           
-          // Verificar se este link específico tem uma substituição individual
-          const specificUrl = href ? window.QUIZ_REPLACEMENTS[href] : null;
+          // Verificar se este link/botão específico tem uma substituição individual
+          const specificUrl = (href && window.QUIZ_REPLACEMENTS[href]) 
+            || (btnId && window.QUIZ_REPLACEMENTS[btnId]) 
+            || (btnClass && window.QUIZ_REPLACEMENTS[btnClass])
+            || null;
           
           // Se o texto contiver palavras de checkout ou o link for para um checkout conhecido
           const isCheckoutTrigger = 
@@ -171,6 +176,9 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
             text.includes('obter acesso') ||
             text.includes('receber o meu') ||
             text.includes('receber') ||
+            text.includes('quero o plano') ||
+            text.includes('quero o plano de') ||
+            text.includes('quero o plano anual') ||
             href.includes('pay.') || 
             href.includes('checkout') ||
             href.includes('cakto') ||
