@@ -141,12 +141,14 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
         // HACK: Interceptação Agressiva de Checkout
         const forceCheckout = (e, targetUrl = '') => {
-          const checkoutUrl = window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
-          if (checkoutUrl) {
+          const globalCheckout = window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
+          const finalUrl = targetUrl || globalCheckout;
+          
+          if (finalUrl) {
             if (e && e.preventDefault) e.preventDefault();
             if (e && e.stopPropagation) e.stopPropagation();
-            console.log("God Mode: Bloqueando saída para " + targetUrl + " e forçando checkout...");
-            window.location.href = checkoutUrl;
+            console.log("God Mode: Redirecionando para " + finalUrl);
+            window.location.href = finalUrl;
             return true;
           }
           return false;
@@ -154,8 +156,8 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
         // 1. Interceptar Cliques
         document.addEventListener('click', (e) => {
-          const checkoutUrl = window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
-          if (!checkoutUrl) return;
+          const replacements = window.QUIZ_REPLACEMENTS || {};
+          const globalCheckout = replacements['__CHECKOUT_URL__'];
           
           const target = e.target.closest('a, button, [role="button"], div, span');
           if (!target) return;
@@ -163,6 +165,9 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           const text = target.textContent?.toLowerCase() || '';
           const href = target.getAttribute('href') || '';
           
+          // Verificar se este link ESPECÍFICO foi editado no editor
+          const specificReplacement = replacements[href];
+
           const isCheckoutTrigger = 
             text.includes('comprar') || 
             text.includes('receber') || 
@@ -175,7 +180,13 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
             href.includes('perfectpay');
 
           if (isCheckoutTrigger) {
-            forceCheckout(e, href);
+            // Se tiver um link específico para esse botão, usa ele. 
+            // Se não, usa o global.
+            const finalUrl = specificReplacement || globalCheckout;
+            
+            if (finalUrl) {
+              forceCheckout(e, finalUrl);
+            }
           }
         }, true);
 
