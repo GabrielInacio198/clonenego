@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { FileEdit, Trash2, Plus, ExternalLink, Copy, CheckCheck, Globe, AlertCircle, Loader2, CopyPlus } from 'lucide-react';
+import { FileEdit, Trash2, Plus, ExternalLink, Copy, CheckCheck, Globe, AlertCircle, Loader2, CopyPlus, Pencil, Check } from 'lucide-react';
 
 interface Quiz {
   id: string;
@@ -19,6 +19,8 @@ export default function QuizzesList() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const fetchQuizzes = async () => {
     setLoading(true);
@@ -62,6 +64,22 @@ export default function QuizzesList() {
       alert(err.message);
     } finally {
       setDuplicatingId(null);
+    }
+  };
+
+  const handleRename = async (quizId: string) => {
+    if (!renameValue.trim()) return;
+    try {
+      const res = await fetch('/api/quiz/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quizId, name: renameValue.trim() })
+      });
+      if (!res.ok) throw new Error('Erro ao renomear');
+      setQuizzes(prev => prev.map(q => q.id === quizId ? { ...q, name: renameValue.trim() } : q));
+      setRenamingId(null);
+    } catch (err: any) {
+      alert(err.message);
     }
   };
 
@@ -137,7 +155,31 @@ export default function QuizzesList() {
 
               {/* Infos */}
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 truncate text-base">{quiz.name}</h3>
+                {renamingId === quiz.id ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      autoFocus
+                      type="text"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleRename(quiz.id)}
+                      className="flex-1 px-3 py-1 border border-blue-300 rounded-lg text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                    <button onClick={() => handleRename(quiz.id)} className="p-1 text-green-600 hover:bg-green-50 rounded"><Check size={18} /></button>
+                    <button onClick={() => setRenamingId(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded text-xs">✕</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 group">
+                    <h3 className="font-semibold text-gray-900 truncate text-base">{quiz.name}</h3>
+                    <button
+                      onClick={() => { setRenamingId(quiz.id); setRenameValue(quiz.name); }}
+                      className="p-1 text-gray-300 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-all"
+                      title="Renomear"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  </div>
+                )}
                 <p className="text-xs text-gray-400 truncate mt-0.5">Original: {quiz.original_url}</p>
                 
                 {/* URL Pública */}
