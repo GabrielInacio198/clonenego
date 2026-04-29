@@ -287,7 +287,8 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
         'Access-Control-Allow-Origin': '*',
-        'Content-Security-Policy': "frame-ancestors *;"
+        'Content-Security-Policy': "frame-ancestors *;",
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
       },
     });
 
