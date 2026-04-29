@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Save, Settings, Code, MonitorSmartphone, Type, X, Link as LinkIcon, Image } from 'lucide-react';
+import { Save, Settings, Code, MonitorSmartphone, Type, X, Link as LinkIcon, Image, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) {
@@ -332,14 +332,35 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                     <p className="text-sm text-gray-500 italic">Nenhum texto editado ainda. Clique no celular ao lado para começar.</p>
                   ) : (
                     <div className="space-y-2">
-                      {Object.entries(replacements).map(([orig, curr], i) => (
-                        <div key={i} className="p-3 bg-white border border-gray-200 rounded-lg text-xs flex justify-between items-start cursor-pointer hover:border-blue-300" onClick={() => setEditingText({original: orig, current: curr, type: orig.startsWith('http') ? 'LINK' : 'TEXT'})}>
-                          <div className="flex-1 pr-2 truncate">
-                            <span className="font-semibold text-gray-700 block truncate">{curr}</span>
-                            <span className="text-gray-400 block truncate">Orig: {orig}</span>
+                      {Object.entries(replacements).map(([orig, curr], i) => {
+                        if (orig === '__CHECKOUT_URL__') return null;
+                        return (
+                          <div key={i} className="group relative">
+                            <div 
+                              className="p-3 bg-white border border-gray-200 rounded-lg text-xs flex justify-between items-start cursor-pointer hover:border-blue-300" 
+                              onClick={() => setEditingText({original: orig, current: curr, type: orig.startsWith('http') ? 'LINK' : 'TEXT'})}
+                            >
+                              <div className="flex-1 pr-6 truncate">
+                                <span className="font-semibold text-gray-700 block truncate">{curr}</span>
+                                <span className="text-gray-400 block truncate">Orig: {orig}</span>
+                              </div>
+                            </div>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const newRepls = { ...replacements };
+                                delete newRepls[orig];
+                                setReplacements(newRepls);
+                                if (editingText?.original === orig) setEditingText(null);
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                              title="Remover esta alteração"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

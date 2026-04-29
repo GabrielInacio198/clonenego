@@ -86,10 +86,12 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           if (node.nodeType === 3) { // Text node
             const val = node.nodeValue?.trim();
             if (val && window.QUIZ_REPLACEMENTS[val]) {
-              node.nodeValue = node.nodeValue.replace(val, window.QUIZ_REPLACEMENTS[val]);
+              const newVal = window.QUIZ_REPLACEMENTS[val];
+              if (typeof newVal === 'string' && !newVal.startsWith('http')) {
+                node.nodeValue = node.nodeValue.replace(val, newVal);
+              }
             }
           } else if (node.nodeType === 1) { // Element node
-            // Substituir HREF (Links)
             if (node.hasAttribute('href')) {
                const href = node.getAttribute('href');
                if (href && window.QUIZ_REPLACEMENTS[href]) {
@@ -97,7 +99,6 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
                }
             }
 
-            // Substituir SRC (Imagens)
             if (node.tagName === 'IMG' && node.hasAttribute('src')) {
                const src = node.getAttribute('src');
                if (src && window.QUIZ_REPLACEMENTS[src]) {
