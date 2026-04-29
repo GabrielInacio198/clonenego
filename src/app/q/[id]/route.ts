@@ -40,7 +40,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     const replacements = quiz.theme_config?.replacements || {};
 
     const safeGuardV7 = `
-      <script>window.QUIZ_REPLACEMENTS = ${JSON.stringify(replacements)};</script>
+      <script>window.QUIZ_REPLACEMENTS = ${JSON.stringify(replacements).replace(/</g, '\\u003c')};</script>
       <script id="god-mode-v7">
         console.log("God Mode v7 Ativado - Proxy + Mutation Dictionary (LIVE PROXY)");
         
