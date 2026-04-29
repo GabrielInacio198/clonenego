@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { FileEdit, Trash2, Plus, ExternalLink, Copy, CheckCheck, Globe, AlertCircle, Loader2 } from 'lucide-react';
+import { FileEdit, Trash2, Plus, ExternalLink, Copy, CheckCheck, Globe, AlertCircle, Loader2, CopyPlus } from 'lucide-react';
 
 interface Quiz {
   id: string;
@@ -18,6 +18,7 @@ export default function QuizzesList() {
   const [error, setError] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const fetchQuizzes = async () => {
     setLoading(true);
@@ -45,6 +46,23 @@ export default function QuizzesList() {
     navigator.clipboard.writeText(getPublicUrl(quiz));
     setCopiedId(quiz.id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleDuplicate = async (quizId: string) => {
+    setDuplicatingId(quizId);
+    try {
+      const res = await fetch('/api/quiz/duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: quizId })
+      });
+      if (!res.ok) throw new Error('Erro ao duplicar');
+      await fetchQuizzes(); // Recarregar a lista
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setDuplicatingId(null);
+    }
   };
 
   const handleDelete = async (quizId: string) => {
@@ -151,7 +169,7 @@ export default function QuizzesList() {
                   {copiedId === quiz.id ? <CheckCheck size={18} className="text-green-500" /> : <Copy size={18} />}
                 </button>
                 <a
-                  href={`/q/${quiz.id}`}
+                  href={getPublicUrl(quiz)}
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Abrir quiz"
@@ -159,6 +177,14 @@ export default function QuizzesList() {
                 >
                   <ExternalLink size={18} />
                 </a>
+                <button
+                  onClick={() => handleDuplicate(quiz.id)}
+                  disabled={duplicatingId === quiz.id}
+                  title="Duplicar este quiz"
+                  className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {duplicatingId === quiz.id ? <Loader2 size={18} className="animate-spin" /> : <CopyPlus size={18} />}
+                </button>
                 <Link
                   href={`/dashboard/quiz/${quiz.id}`}
                   title="Editar"
