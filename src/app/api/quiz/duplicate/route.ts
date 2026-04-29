@@ -45,6 +45,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Erro ao duplicar o quiz' }, { status: 500 });
     }
 
+    // 3. Buscar e copiar as etapas (se existirem)
+    const { data: steps } = await supabase
+      .from('quiz_steps')
+      .select('*')
+      .eq('quiz_id', id);
+
+    if (steps && steps.length > 0) {
+      const newSteps = steps.map(step => {
+        const { id: _stepId, created_at: _stepCreated, ...stepData } = step;
+        return {
+          ...stepData,
+          quiz_id: created.id
+        };
+      });
+
+      const { error: stepsError } = await supabase
+        .from('quiz_steps')
+        .insert(newSteps);
+        
+      if (stepsError) {
+        console.error('Erro ao copiar steps:', stepsError);
+        // Mesmo falhando os steps, o quiz foi criado. Retornamos success mas podemos logar
+      }
+    }
+
     return NextResponse.json(created);
   } catch (error) {
     console.error('Erro na API de duplicação:', error);
