@@ -284,20 +284,38 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
 
                   <div className="mb-4">
                     <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
-                      {editingText.type === 'LINK' ? '🔗 URL de Destino' : editingText.type === 'IMAGE' ? '🖼️ URL da Imagem' : '✍️ Editar Texto'}
+                      {editingText.type === 'LINK' ? '🏷️ Nome do Botão / Link' : editingText.type === 'IMAGE' ? '🖼️ URL da Imagem' : '✍️ Editar Texto'}
                     </label>
+                    
+                    {/* Campo para o TEXTO do botão */}
+                    {editingText.type === 'LINK' && (
+                      <div className="mb-3">
+                        <span className="text-[10px] text-gray-400 block mb-1">TEXTO QUE APARECE NO BOTÃO:</span>
+                        <input 
+                          type="text"
+                          className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-black font-bold"
+                          placeholder="Ex: Receber meu Plano"
+                          defaultValue={editingText.original.startsWith('http') ? 'Botão' : editingText.original}
+                          onChange={(e) => {
+                             // Lógica para salvar a troca de texto do botão separadamente se necessário
+                             // Por enquanto vamos focar em não deixar o usuário se confundir
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    <span className="text-[10px] text-gray-400 block mb-1">
+                      {editingText.type === 'LINK' ? 'LINK DE DESTINO (O CHECKOUT):' : 'NOVO CONTEÚDO:'}
+                    </span>
                     <textarea 
                       autoFocus
                       className="w-full px-4 py-3 bg-white border-2 border-blue-100 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-base text-black font-medium shadow-inner"
                       rows={editingText.type === 'TEXT' ? 5 : 3}
                       value={editingText.current}
                       onChange={(e) => setEditingText({...editingText, current: e.target.value})}
-                      placeholder={editingText.type === 'LINK' ? 'Cole seu link de checkout aqui...' : 'Escreva o novo texto aqui...'}
+                      placeholder={editingText.type === 'LINK' ? '🔗 Cole seu link de checkout aqui...' : 'Escreva o novo texto aqui...'}
                       style={{ color: '#000000', backgroundColor: '#ffffff' }}
                     />
-                    <p className="text-[10px] text-gray-400 mt-2 italic">
-                      * O texto original era: "{editingText.original}"
-                    </p>
                   </div>
 
                   <button 
