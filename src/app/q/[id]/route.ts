@@ -186,7 +186,19 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
             href.includes('perfectpay');
 
           if (isCheckoutTrigger || specificUrl) {
-            forceCheckout(e, specificUrl);
+            // Multi-Checkout: tentar identificar qual plano foi clicado pelo texto
+            let planUrl = specificUrl;
+            if (!planUrl) {
+              const r = window.QUIZ_REPLACEMENTS;
+              if (text.includes('1 m') || text.includes('mensal') || text.includes('plano de 1')) {
+                planUrl = r['__CHECKOUT_PLAN_1__'];
+              } else if (text.includes('3 m') || text.includes('trimestral') || text.includes('plano de 3')) {
+                planUrl = r['__CHECKOUT_PLAN_2__'];
+              } else if (text.includes('anual') || text.includes('12 m') || text.includes('plano anual')) {
+                planUrl = r['__CHECKOUT_PLAN_3__'];
+              }
+            }
+            forceCheckout(e, planUrl);
           }
         }, true);
 

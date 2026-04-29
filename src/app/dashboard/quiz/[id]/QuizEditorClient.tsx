@@ -202,7 +202,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
             <div className="space-y-4">
 
               {/* Checkout Global Quick Access */}
-              <div className="bg-slate-900 rounded-2xl p-4 shadow-xl border border-white/10 mb-6">
+              <div className="bg-slate-900 rounded-2xl p-4 shadow-xl border border-white/10 mb-4">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="p-1.5 bg-blue-500 rounded-lg">
                     <LinkIcon size={14} className="text-white" />
@@ -217,8 +217,52 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                    onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_URL__': e.target.value })}
                 />
                 <p className="text-[10px] text-slate-400 mt-2">
-                  * Este link anula todos os botões originais da Cakto.
+                  * Usado quando não há checkout individual por plano.
                 </p>
+              </div>
+
+              {/* Multi-Checkout por Plano */}
+              <div className="bg-gradient-to-br from-emerald-900 to-emerald-800 rounded-2xl p-4 shadow-xl border border-emerald-500/20 mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 bg-emerald-500 rounded-lg">
+                    <LinkIcon size={14} className="text-white" />
+                  </div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">Checkouts por Plano</h3>
+                </div>
+                <p className="text-[10px] text-emerald-300/70 mb-3">Se o funil tem vários planos com preços diferentes, cole cada link abaixo:</p>
+                
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-[10px] text-emerald-300 font-bold block mb-1">💰 PLANO 1 (ex: 1 Mês)</label>
+                    <input 
+                      type="text"
+                      placeholder="Link do checkout do Plano 1..."
+                      className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-xs text-emerald-200 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
+                      value={replacements['__CHECKOUT_PLAN_1__'] || ''}
+                      onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_PLAN_1__': e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-emerald-300 font-bold block mb-1">💎 PLANO 2 (ex: 3 Meses)</label>
+                    <input 
+                      type="text"
+                      placeholder="Link do checkout do Plano 2..."
+                      className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-xs text-emerald-200 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
+                      value={replacements['__CHECKOUT_PLAN_2__'] || ''}
+                      onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_PLAN_2__': e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-emerald-300 font-bold block mb-1">🏆 PLANO 3 (ex: Anual)</label>
+                    <input 
+                      type="text"
+                      placeholder="Link do checkout do Plano 3..."
+                      className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-xs text-emerald-200 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
+                      value={replacements['__CHECKOUT_PLAN_3__'] || ''}
+                      onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_PLAN_3__': e.target.value })}
+                    />
+                  </div>
+                </div>
               </div>
               
               {/* Toggle de Modo */}
