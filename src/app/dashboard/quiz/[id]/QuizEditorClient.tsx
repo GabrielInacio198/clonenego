@@ -293,7 +293,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                   ) : (
                     <div className="space-y-2">
                       {Object.entries(replacements).map(([orig, curr], i) => (
-                        <div key={i} className="p-3 bg-white border border-gray-200 rounded-lg text-xs flex justify-between items-start cursor-pointer hover:border-blue-300" onClick={() => setEditingText({original: orig, current: curr})}>
+                        <div key={i} className="p-3 bg-white border border-gray-200 rounded-lg text-xs flex justify-between items-start cursor-pointer hover:border-blue-300" onClick={() => setEditingText({original: orig, current: curr, type: orig.startsWith('http') ? 'LINK' : 'TEXT'})}>
                           <div className="flex-1 pr-2 truncate">
                             <span className="font-semibold text-gray-700 block truncate">{curr}</span>
                             <span className="text-gray-400 block truncate">Orig: {orig}</span>
