@@ -27,29 +27,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     });
 
     let html = await response.text();
-    const targetUrl = new URL(quiz.original_url);
-    const targetBaseUrl = targetUrl.origin;
+    const targetBaseUrl = new URL(quiz.original_url).origin;
 
-    // SCRIPT SAFE-GUARD V7 + ESCUDO NUCLEAR
+    // SCRIPT ESTÁVEL E SEGURO (Versão Corrigida)
     const safetyScript = `
       <script>
       (function() {
         window.QUIZ_REPLACEMENTS = ${JSON.stringify(quiz.theme_config?.replacements || {})};
         
-        // --- PROTEÇÃO ANTI-TELA-BRANCA ---
-        const noop = () => {};
-        // Impedir que o site original limpe o corpo da página
-        const _origSet = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML').set;
-        Object.defineProperty(Element.prototype, 'innerHTML', {
-          set: function(val) {
-            if (this.tagName === 'BODY' && (val === '' || val === ' ')) return;
-            return _origSet.call(this, val);
-          }
-        });
-
-        // --- ESCUDO NUCLEAR DE CHECKOUT ---
-        function forceRedirect(url) {
-          if (!url || typeof url !== 'string') return false;
+        // Função de Redirecionamento Simples
+        function handleCheckout(url) {
           const replacements = window.QUIZ_REPLACEMENTS || {};
           const global = replacements['__CHECKOUT_URL__'];
           const specific = replacements[url];
@@ -62,50 +49,50 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
           return false;
         }
 
-        // Interceptar Cliques
+        // Interceptar Cliques sem quebrar o site
         document.addEventListener('click', (e) => {
           const target = e.target.closest('a, button, [role="button"]');
           if (target) {
             const href = target.getAttribute('href') || '';
-            if (forceRedirect(href)) {
+            const text = target.textContent?.toLowerCase() || '';
+            
+            if (handleCheckout(href)) {
               e.preventDefault();
               e.stopPropagation();
+            } else if (text.includes('receber') || text.includes('comprar')) {
+              // Se o botão não tem link mas tem texto de checkout, tenta o global
+              const global = window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
+              if (global) {
+                e.preventDefault();
+                window.location.href = global;
+              }
             }
           }
         }, true);
 
-        // Limpeza Ativa de Links
-        setInterval(() => {
-          document.querySelectorAll('a').forEach(a => {
-            const href = a.getAttribute('href');
-            if (href && (href.includes('kirvano') || href.includes('pay.') || href.includes('checkout'))) {
-              const final = window.QUIZ_REPLACEMENTS[href] || window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
-              if (final) a.setAttribute('href', final);
-            }
-          });
-        }, 500);
-
-        // Bloquear window.open
+        // Bloquear window.open para checkouts
         const _open = window.open;
         window.open = function(url) {
-          if (url && forceRedirect(url)) return null;
+          if (url && handleCheckout(url)) return null;
           return _open.apply(this, arguments);
         };
       })();
       </script>
     `;
 
-    // Injeção Estratégica
-    html = html.replace('<head>', '<head>' + safetyScript);
-    
-    // Corrigir links e imagens para não quebrar
-    html = html.replace(/(href|src|action)="\//g, `$1="${targetBaseUrl}/`);
-    
-    // Forçar base para assets relativos
+    // 1. Injetar tag <base> no topo para carregar imagens/estilos sem erro
     html = html.replace('<head>', '<head><base href="' + targetBaseUrl + '/">');
+    
+    // 2. Injetar o script de checkout no FINAL do body para não interferir no carregamento inicial
+    html = html.replace('</body>', safetyScript + '</body>');
 
     return new Response(html, {
-      headers: { 'Content-Type': 'text/html' }
+      headers: { 
+        'Content-Type': 'text/html',
+        // Remover proteções de segurança que podem causar tela branca
+        'Content-Security-Policy': "default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline';",
+        'X-Frame-Options': 'ALLOWALL'
+      }
     });
 
   } catch (err) {
