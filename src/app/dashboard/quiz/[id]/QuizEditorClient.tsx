@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Save, Settings, Code, MonitorSmartphone, Type, X } from 'lucide-react';
+import { Save, Settings, Code, MonitorSmartphone, Type, X, Link as LinkIcon, Image } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) {
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'visual' | 'advanced'>('visual');
   const [replacements, setReplacements] = useState<Record<string, string>>(initialQuiz.theme_config?.replacements || {});
-  const [editingText, setEditingText] = useState<{original: string, current: string} | null>(null);
+  const [editingText, setEditingText] = useState<{ original: string, current: string, type: string } | null>(null);
   const [isEditMode, setIsEditMode] = useState(true);
   
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -55,30 +55,39 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
         });
 
         doc.body.addEventListener('click', (e: any) => {
-          if (!(win as any).isEditMode) return; // Se for navegação, deixa o React lidar normal!
+          if (!(win as any).isEditMode) return;
 
           e.preventDefault();
           e.stopPropagation();
           
-          let target = e.target;
-          let originalText = '';
-          
+          let target = e.target.closest('a, button, img, h1, h2, h3, p, span, div');
+          if (!target) return;
+
+          let originalValue = '';
+          let type = 'TEXT';
+
+          // Detectar Imagem
           if (target.tagName === 'IMG') {
-             originalText = target.getAttribute('src');
-             if (originalText) window.parent.postMessage({ type: 'EDIT_TEXT', originalText, isImage: true }, '*');
-             return;
+             originalValue = target.getAttribute('src') || '';
+             type = 'IMAGE';
+          } 
+          // Detectar Link (href)
+          else if (target.tagName === 'A' || target.hasAttribute('href')) {
+             originalValue = target.getAttribute('href') || '';
+             type = 'LINK';
+          }
+          // Detectar Texto
+          else {
+            let textNode = Array.from(target.childNodes).find((n: any) => n.nodeType === 3 && n.nodeValue.trim() !== '');
+            originalValue = textNode ? (textNode as any).nodeValue.trim() : target.textContent.trim();
           }
 
-          // Pegar o textNode direto
-          let textNode = Array.from(target.childNodes).find((n: any) => n.nodeType === 3 && n.nodeValue.trim() !== '');
-          if (textNode) {
-             originalText = (textNode as any).nodeValue.trim();
-          } else if (target.textContent) {
-             originalText = target.textContent.trim();
-          }
-
-          if (originalText) {
-             window.parent.postMessage({ type: 'EDIT_TEXT', originalText, isImage: false }, '*');
+          if (originalValue) {
+             window.parent.postMessage({ 
+                type: 'EDIT_ELEMENT', 
+                originalValue, 
+                elementType: type 
+             }, '*');
           }
         }, true);
 
@@ -96,10 +105,11 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
 
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
-      if (e.data?.type === 'EDIT_TEXT') {
+      if (e.data?.type === 'EDIT_ELEMENT') {
          setEditingText({
-            original: e.data.originalText,
-            current: replacements[e.data.originalText] || e.data.originalText
+            original: e.data.originalValue,
+            current: replacements[e.data.originalValue] || e.data.originalValue,
+            type: e.data.elementType
          });
       }
     };
@@ -232,7 +242,13 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                 <div className="bg-white border-2 border-blue-500 rounded-xl p-4 shadow-sm animate-in fade-in slide-in-from-top-4">
                   <div className="flex justify-between items-center mb-3">
                     <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                      <Type size={16} className="text-blue-500"/> Editando Texto
+                      {editingText.type === 'LINK' ? (
+                        <><LinkIcon size={16} className="text-green-500"/> Link Detectado</>
+                      ) : editingText.type === 'IMAGE' ? (
+                        <><Image size={16} className="text-purple-500"/> Imagem Detectada</>
+                      ) : (
+                        <><Type size={16} className="text-blue-500"/> Editando Texto</>
+                      )}
                     </h3>
                     <button onClick={() => setEditingText(null)} className="text-gray-400 hover:text-gray-600">
                       <X size={18} />
@@ -240,20 +256,25 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                   </div>
                   
                   <div className="mb-4">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Texto Original (Alvo)</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      {editingText.type === 'LINK' ? 'URL Original (Alvo)' : editingText.type === 'IMAGE' ? 'URL da Imagem Original' : 'Texto Original (Alvo)'}
+                    </label>
                     <div className="p-2 bg-gray-50 rounded border border-gray-100 text-sm text-gray-600 break-words line-clamp-3">
                       {editingText.original}
                     </div>
                   </div>
 
                   <div className="mb-4">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Novo Texto</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      {editingText.type === 'LINK' ? 'Nova URL de Destino' : editingText.type === 'IMAGE' ? 'Nova URL da Imagem' : 'Novo Texto'}
+                    </label>
                     <textarea 
                       autoFocus
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
-                      rows={4}
+                      rows={editingText.type === 'TEXT' ? 4 : 2}
                       value={editingText.current}
                       onChange={(e) => setEditingText({...editingText, current: e.target.value})}
+                      placeholder={editingText.type === 'LINK' ? 'Cole seu link aqui...' : ''}
                     />
                   </div>
 
@@ -261,7 +282,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                     onClick={applyTextChange}
                     className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm transition-colors"
                   >
-                    Aplicar Troca
+                    Aplicar Alteração
                   </button>
                 </div>
               ) : (

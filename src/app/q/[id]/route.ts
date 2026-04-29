@@ -82,33 +82,29 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         };
 
         function applyReplacements(node) {
-          if (node.nodeType === Node.TEXT_NODE) {
-            const text = node.nodeValue;
-            if (text && text.trim() && window.QUIZ_REPLACEMENTS[text.trim()]) {
-              node.nodeValue = text.replace(text.trim(), window.QUIZ_REPLACEMENTS[text.trim()]);
+          if (!node) return;
+          if (node.nodeType === 3) { // Text node
+            const val = node.nodeValue?.trim();
+            if (val && window.QUIZ_REPLACEMENTS[val]) {
+              node.nodeValue = node.nodeValue.replace(val, window.QUIZ_REPLACEMENTS[val]);
             }
-          } else if (node.nodeType === Node.ELEMENT_NODE) {
-            if (node.tagName === 'IMG' && node.src) {
-               const origSrc = node.getAttribute('src');
-               for (const [key, value] of Object.entries(window.QUIZ_REPLACEMENTS)) {
-                  if (origSrc === key || node.src.includes(encodeURIComponent(key))) {
-                     node.src = value;
-                     node.srcset = '';
-                     break;
-                  }
-               }
-            } else if (node.tagName === 'A' && node.href) {
-               if (window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__']) {
-                  // Se for um link externo (não é rota interna do next)
-                  const href = node.getAttribute('href');
-                  if (href && (href.includes('pay.') || href.includes('checkout') || href.startsWith('http'))) {
-                     const urlObj = new URL(node.href);
-                     if (urlObj.hostname !== window.location.hostname && urlObj.hostname !== targetBaseUrl) {
-                         node.href = window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
-                     }
-                  }
+          } else if (node.nodeType === 1) { // Element node
+            // Substituir HREF (Links)
+            if (node.hasAttribute('href')) {
+               const href = node.getAttribute('href');
+               if (href && window.QUIZ_REPLACEMENTS[href]) {
+                  node.setAttribute('href', window.QUIZ_REPLACEMENTS[href]);
                }
             }
+
+            // Substituir SRC (Imagens)
+            if (node.tagName === 'IMG' && node.hasAttribute('src')) {
+               const src = node.getAttribute('src');
+               if (src && window.QUIZ_REPLACEMENTS[src]) {
+                  node.setAttribute('src', window.QUIZ_REPLACEMENTS[src]);
+               }
+            }
+
             node.childNodes.forEach(applyReplacements);
           }
         }
@@ -118,9 +114,17 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
             if (mutation.type === 'childList') {
               mutation.addedNodes.forEach(node => applyReplacements(node));
             } else if (mutation.type === 'characterData') {
-              const oldVal = mutation.target.nodeValue;
-              if (oldVal && oldVal.trim() && window.QUIZ_REPLACEMENTS[oldVal.trim()]) {
-                 mutation.target.nodeValue = oldVal.replace(oldVal.trim(), window.QUIZ_REPLACEMENTS[oldVal.trim()]);
+              const oldVal = mutation.target.nodeValue?.trim();
+              if (oldVal && window.QUIZ_REPLACEMENTS[oldVal]) {
+                 mutation.target.nodeValue = mutation.target.nodeValue.replace(oldVal, window.QUIZ_REPLACEMENTS[oldVal]);
+              }
+            } else if (mutation.type === 'attributes') {
+              const attr = mutation.attributeName;
+              if (attr === 'href' || attr === 'src') {
+                 const val = mutation.target.getAttribute(attr);
+                 if (val && window.QUIZ_REPLACEMENTS[val]) {
+                    mutation.target.setAttribute(attr, window.QUIZ_REPLACEMENTS[val]);
+                 }
               }
             }
           });
@@ -129,7 +133,9 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         observer.observe(document.documentElement, {
           childList: true,
           subtree: true,
-          characterData: true
+          characterData: true,
+          attributes: true,
+          attributeFilter: ['href', 'src']
         });
 
         // HACK: Interceptação Agressiva de Checkout
