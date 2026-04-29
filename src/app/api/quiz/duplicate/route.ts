@@ -25,13 +25,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Quiz não encontrado' }, { status: 404 });
     }
 
-    // 2. Criar a cópia (removendo o ID para o Supabase gerar um novo)
-    const { id: _, created_at: __, ...copyData } = original;
-    
+    // 2. Criar a cópia (inserindo apenas os dados que temos certeza que existem e são seguros)
     const newQuiz = {
-      ...copyData,
+      user_id: original.user_id,
       name: `${original.name} (Cópia)`,
-      slug: `${original.slug}-copia-${Math.random().toString(36).substring(7)}`,
+      original_url: original.original_url,
+      theme_config: original.theme_config,
+      font_family: original.font_family
     };
 
     const { data: created, error: insertError } = await supabase

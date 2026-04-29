@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Save, Settings, Code, MonitorSmartphone, Type, X, Link as LinkIcon, Image, Trash2 } from 'lucide-react';
+import { Save, Settings, Code, MonitorSmartphone, Type, X, Link as LinkIcon, Image, Trash2, Globe, Copy } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) {
@@ -200,6 +200,46 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
         <div className="p-6 flex-1 overflow-y-auto">
           {activeTab === 'visual' && (
             <div className="space-y-4">
+
+              {/* Domínio Próprio e Link Final */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 shadow-sm mb-4">
+                <h3 className="text-sm font-bold text-blue-900 mb-2 flex items-center gap-2">
+                  <Globe size={16} /> Seu Domínio Personalizado
+                </h3>
+                <p className="text-xs text-blue-700 mb-3">
+                  Qual domínio você apontou para a Vercel? Ex: <b>secajejum.com.br</b>
+                </p>
+                <div className="flex flex-col gap-2">
+                  <input 
+                    type="text"
+                    placeholder="ex: seudominio.com.br"
+                    value={customDomain}
+                    onChange={(e) => setCustomDomain(e.target.value.trim().replace(/^https?:\/\//, ''))}
+                    className="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-800"
+                  />
+                  
+                  {/* Copy Link Button */}
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const base = customDomain ? `https://${customDomain}` : window.location.origin;
+                      const link = `${base}/q/${initialQuiz.id}`;
+                      navigator.clipboard.writeText(link);
+                      const btn = e.currentTarget;
+                      const originalText = btn.innerHTML;
+                      btn.innerHTML = '✅ Link Copiado!';
+                      btn.classList.add('bg-green-100', 'text-green-700', 'border-green-300');
+                      setTimeout(() => {
+                        btn.innerHTML = originalText;
+                        btn.classList.remove('bg-green-100', 'text-green-700', 'border-green-300');
+                      }, 2000);
+                    }}
+                    className="mt-1 flex items-center justify-center gap-2 w-full py-2 bg-white border border-blue-200 hover:bg-blue-100 hover:border-blue-300 text-blue-700 text-sm font-semibold rounded-lg transition-colors"
+                  >
+                    <Copy size={14} /> Copiar Link do Funil
+                  </button>
+                </div>
+              </div>
 
               {/* Checkout Global Quick Access */}
               <div className="bg-slate-900 rounded-2xl p-4 shadow-xl border border-white/10 mb-4">
