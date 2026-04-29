@@ -135,6 +135,8 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
   };
 
   const [customDomain, setCustomDomain] = useState<string>(initialQuiz.theme_config?.custom_domain || '');
+  const [headScripts, setHeadScripts] = useState<string>(initialQuiz.theme_config?.head_scripts || '');
+  const [bodyScripts, setBodyScripts] = useState<string>(initialQuiz.theme_config?.body_scripts || '');
   const [quizName, setQuizName] = useState(initialQuiz.name);
 
   const handleSave = async () => {
@@ -149,7 +151,9 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
           theme_config: {
             ...initialQuiz.theme_config,
             replacements,
-            custom_domain: customDomain.trim() || undefined
+            custom_domain: customDomain.trim() || undefined,
+            head_scripts: headScripts,
+            body_scripts: bodyScripts
           }
         })
       });
@@ -483,22 +487,29 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
 
               <div className="border-t border-gray-200 pt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Pixel do Facebook / Scripts
+                  Scripts do Head (Cabeçalho)
                 </label>
                 <textarea 
                   className="w-full rounded-lg border-gray-300 border p-3 text-sm h-32"
-                  placeholder="Cole seu script do pixel aqui..."
-                  value={replacements['__PIXEL_SCRIPT__'] || ''}
-                  onChange={(e) => {
-                       const val = e.target.value;
-                       const newReps = { ...replacements };
-                       if (val) newReps['__PIXEL_SCRIPT__'] = val;
-                       else delete newReps['__PIXEL_SCRIPT__'];
-                       setReplacements(newReps);
-                  }}
+                  placeholder="<script>... Código do Pixel ou Utmify ...</script>"
+                  value={headScripts}
+                  onChange={(e) => setHeadScripts(e.target.value)}
+                />
+                <p className="text-xs text-gray-500 mt-1 mb-4">
+                  Injetado diretamente dentro da tag &lt;head&gt;. Ideal para Utmify, Facebook Pixel, etc.
+                </p>
+
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Scripts do Body (Rodapé)
+                </label>
+                <textarea 
+                  className="w-full rounded-lg border-gray-300 border p-3 text-sm h-32"
+                  placeholder="<script>... Scripts que carregam no final ...</script>"
+                  value={bodyScripts}
+                  onChange={(e) => setBodyScripts(e.target.value)}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Este script será injetado invisivelmente no cabeçalho do quiz.
+                  Injetado no final da tag &lt;body&gt;.
                 </p>
               </div>
 

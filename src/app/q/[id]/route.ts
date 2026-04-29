@@ -141,10 +141,26 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
         // HACK: Interceptação Agressiva de Checkout
         const forceCheckout = (e, customUrl) => {
-          const finalUrl = customUrl || window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
+          let finalUrl = customUrl || window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
           if (finalUrl) {
             if (e && e.preventDefault) e.preventDefault();
             if (e && e.stopPropagation) e.stopPropagation();
+            
+            // Repassar os parâmetros da URL (UTMs, src, etc) para o checkout
+            if (window.location.search) {
+               try {
+                 const urlObj = new URL(finalUrl);
+                 const currentParams = new URLSearchParams(window.location.search);
+                 currentParams.forEach((value, key) => {
+                    urlObj.searchParams.set(key, value);
+                 });
+                 finalUrl = urlObj.toString();
+               } catch(err) {
+                 // Fallback caso a finalUrl não seja parseável
+                 finalUrl += (finalUrl.includes('?') ? '&' : '?') + window.location.search.substring(1);
+               }
+            }
+            
             console.log("God Mode: Redirecionando para " + finalUrl);
             window.location.href = finalUrl;
             return true;
@@ -243,7 +259,15 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     `;
 
     $('head').prepend(safeGuardV7);
-
+    
+    const themeConfig = quiz.theme_config || {};
+    if (themeConfig.head_scripts) {
+      $('head').append(`\n<!-- INJECTED HEAD SCRIPTS -->\n${themeConfig.head_scripts}\n`);
+    }
+    if (themeConfig.body_scripts) {
+      $('body').append(`\n<!-- INJECTED BODY SCRIPTS -->\n${themeConfig.body_scripts}\n`);
+    }
+    
     // FIX DE ASSETS Absolutos
     $('[src^="/"]').each((_, el) => {
       const src = $(el).attr('src');
