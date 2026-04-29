@@ -200,6 +200,26 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
         <div className="p-6 flex-1 overflow-y-auto">
           {activeTab === 'visual' && (
             <div className="space-y-4">
+
+              {/* Checkout Global Quick Access */}
+              <div className="bg-slate-900 rounded-2xl p-4 shadow-xl border border-white/10 mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 bg-blue-500 rounded-lg">
+                    <LinkIcon size={14} className="text-white" />
+                  </div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">Link de Checkout Global</h3>
+                </div>
+                <input 
+                   type="text"
+                   placeholder="🔗 Cole seu link Kirvano/PerfectPay..."
+                   className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-blue-200 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                   value={replacements['__CHECKOUT_URL__'] || ''}
+                   onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_URL__': e.target.value })}
+                />
+                <p className="text-[10px] text-slate-400 mt-2">
+                  * Este link anula todos os botões originais da Cakto.
+                </p>
+              </div>
               
               {/* Toggle de Modo */}
               <div className="flex bg-gray-200 rounded-lg p-1">
@@ -263,24 +283,28 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                   </div>
 
                   <div className="mb-4">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      {editingText.type === 'LINK' ? 'Nova URL de Destino' : editingText.type === 'IMAGE' ? 'Nova URL da Imagem' : 'Novo Texto'}
+                    <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
+                      {editingText.type === 'LINK' ? '🔗 URL de Destino' : editingText.type === 'IMAGE' ? '🖼️ URL da Imagem' : '✍️ Editar Texto'}
                     </label>
                     <textarea 
                       autoFocus
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
-                      rows={editingText.type === 'TEXT' ? 4 : 2}
+                      className="w-full px-4 py-3 bg-white border-2 border-blue-100 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-base text-black font-medium shadow-inner"
+                      rows={editingText.type === 'TEXT' ? 5 : 3}
                       value={editingText.current}
                       onChange={(e) => setEditingText({...editingText, current: e.target.value})}
-                      placeholder={editingText.type === 'LINK' ? 'Cole seu link aqui...' : ''}
+                      placeholder={editingText.type === 'LINK' ? 'Cole seu link de checkout aqui...' : 'Escreva o novo texto aqui...'}
+                      style={{ color: '#000000', backgroundColor: '#ffffff' }}
                     />
+                    <p className="text-[10px] text-gray-400 mt-2 italic">
+                      * O texto original era: "{editingText.original}"
+                    </p>
                   </div>
 
                   <button 
                     onClick={applyTextChange}
-                    className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm transition-colors"
+                    className="w-full py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold text-base transition-all shadow-lg active:scale-95"
                   >
-                    Aplicar Alteração
+                    Confirmar e Aplicar
                   </button>
                 </div>
               ) : (

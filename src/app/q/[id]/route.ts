@@ -139,18 +139,22 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         });
 
         // HACK: Interceptação Agressiva de Checkout
-        const forceCheckout = () => {
+        const forceCheckout = (e) => {
           if (window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__']) {
+            if (e && e.preventDefault) e.preventDefault();
+            if (e && e.stopPropagation) e.stopPropagation();
             console.log("God Mode: Redirecionando para checkout forçado...");
             window.location.href = window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
+            return true;
           }
+          return false;
         };
 
         // Interceptar clicks em qualquer coisa que pareça um gatilho de checkout
         document.addEventListener('click', (e) => {
           if (!window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__']) return;
           
-          const target = e.target.closest('a, button, div[role="button"]');
+          const target = e.target.closest('a, button, [role="button"], div, span');
           if (!target) return;
 
           const text = target.textContent?.toLowerCase() || '';
@@ -162,13 +166,13 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
             text.includes('checkout') || 
             text.includes('receber agora') ||
             text.includes('obter acesso') ||
+            text.includes('receber o meu') ||
             href.includes('pay.') || 
-            href.includes('checkout');
+            href.includes('checkout') ||
+            href.includes('cakto');
 
           if (isCheckoutTrigger) {
-            e.preventDefault();
-            e.stopPropagation();
-            forceCheckout();
+            forceCheckout(e);
           }
         }, true);
 
