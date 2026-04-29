@@ -21,20 +21,10 @@ export default async function QuizEditorPage(props: { params: Promise<{ id: stri
     );
   }
 
-  // Buscar as etapas (perguntas)
-  const { data: steps, error: stepsError } = await supabaseAdmin
-    .from('quiz_steps')
-    .select('*')
-    .eq('quiz_id', params.id)
-    .order('order', { ascending: true });
-
-  if (stepsError) {
-    return <div>Erro ao carregar as etapas.</div>;
-  }
 
   return (
     <div className="h-[calc(100vh-80px)]">
-      <QuizEditorClient initialQuiz={quiz} initialSteps={steps || []} />
+      <QuizEditorClient initialQuiz={quiz} />
     </div>
   );
 }

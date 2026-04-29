@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     }
 
     const { data: adminUsers } = await supabaseAdmin.auth.admin.listUsers();
-    let validUserId = adminUsers?.users[0]?.id;
+    let validUserId: string | undefined = adminUsers?.users[0]?.id;
 
     if (!validUserId) {
       const { data: newAuthUser } = await supabaseAdmin.auth.admin.createUser({
@@ -19,7 +19,11 @@ export async function POST(req: Request) {
         password: 'password123',
         email_confirm: true
       });
-      validUserId = newAuthUser.user?.id;
+      validUserId = newAuthUser?.user?.id ?? undefined;
+    }
+
+    if (!validUserId) {
+      throw new Error('Não foi possível obter um usuário válido');
     }
 
     const response = await fetch(url, {
