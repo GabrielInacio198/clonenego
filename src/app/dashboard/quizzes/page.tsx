@@ -84,8 +84,14 @@ export default function QuizzesList() {
     }
   };
 
-  const handleDelete = async (quizId: string) => {
-    if (!confirm('Tem certeza? Isso vai deletar o quiz e todas as configurações salvas.')) return;
+  const handleDelete = async (quizId: string, quizName: string) => {
+    const confirmText = window.prompt(`CUIDADO: Isso vai excluir o funil inteiro ("${quizName}") e todas as configurações, e as pessoas vão parar de acessar imediatamente.\n\nPara confirmar a exclusão, digite a palavra DELETAR abaixo:`);
+    
+    if (confirmText !== 'DELETAR') {
+      if (confirmText !== null) alert('Ação cancelada. A palavra digitada não confere.');
+      return;
+    }
+
     setDeletingId(quizId);
     try {
       const res = await fetch('/api/quiz/delete', {
@@ -243,7 +249,7 @@ export default function QuizzesList() {
                   Editar
                 </Link>
                 <button
-                  onClick={() => handleDelete(quiz.id)}
+                  onClick={() => handleDelete(quiz.id, quiz.name)}
                   disabled={deletingId === quiz.id}
                   title="Deletar"
                   className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
