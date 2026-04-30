@@ -15,6 +15,11 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     return new NextResponse('Quiz não encontrado ou sem URL original', { status: 404 });
   }
 
+  // Grava a visualização de forma assíncrona (não usa await para não atrasar o carregamento)
+  supabaseAdmin.from('quiz_views').insert([{ quiz_id: params.id }]).then(({error}) => {
+     if (error) console.error('Erro ao registrar view:', error);
+  });
+
   try {
     // 1. Fetch LIVE HTML from original_url
     const response = await fetch(quiz.original_url, {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { FileEdit, Trash2, Plus, ExternalLink, Copy, CheckCheck, Globe, AlertCircle, Loader2, CopyPlus, Pencil, Check } from 'lucide-react';
+import { FileEdit, Trash2, Plus, ExternalLink, Copy, CheckCheck, Globe, AlertCircle, Loader2, CopyPlus, Pencil, Check, Eye } from 'lucide-react';
 
 interface Quiz {
   id: string;
@@ -10,6 +10,7 @@ interface Quiz {
   original_url: string;
   created_at: string;
   theme_config?: { custom_domain?: string; replacements?: Record<string, string> };
+  views?: number;
 }
 
 export default function QuizzesList() {
@@ -182,16 +183,22 @@ export default function QuizzesList() {
                 )}
                 <p className="text-xs text-gray-400 truncate mt-0.5">Original: {quiz.original_url}</p>
                 
-                {/* URL Pública */}
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded">
-                    {quiz.theme_config?.custom_domain ? '🌐 Domínio Próprio' : '🔗 URL do Sistema'}
-                  </span>
-                  <code className="text-xs text-gray-500 truncate max-w-sm">
-                    {quiz.theme_config?.custom_domain
-                      ? `https://${quiz.theme_config.custom_domain}`
-                      : `/q/${quiz.id}`}
-                  </code>
+                {/* URL Pública & Acessos */}
+                <div className="flex items-center gap-3 mt-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded">
+                      {quiz.theme_config?.custom_domain ? '🌐 Domínio Próprio' : '🔗 URL do Sistema'}
+                    </span>
+                    <code className="text-xs text-gray-500 truncate max-w-sm">
+                      {quiz.theme_config?.custom_domain
+                        ? `https://${quiz.theme_config.custom_domain}`
+                        : `/q/${quiz.id}`}
+                    </code>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+                    <Eye size={14} className="text-blue-500" />
+                    {quiz.views || 0} acessos
+                  </div>
                 </div>
               </div>
 
