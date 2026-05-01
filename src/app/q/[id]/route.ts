@@ -158,7 +158,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
             } else if (mutation.type === 'characterData') {
               const oldVal = mutation.target.nodeValue?.trim();
               if (oldVal && window.QUIZ_REPLACEMENTS[oldVal]) {
-                 applyReplacements(mutation.target.parentNode || mutation.target);
+                 applyReplacements(null);
                  hasMeaningfulChange = true;
               }
             } else if (mutation.type === 'attributes') {
@@ -166,7 +166,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
               if (attr === 'href' || attr === 'src') {
                  const val = mutation.target.getAttribute(attr);
                  if (val && window.QUIZ_REPLACEMENTS[val]) {
-                    applyReplacements(mutation.target);
+                    applyReplacements(null);
                     hasMeaningfulChange = true;
                  }
               }
