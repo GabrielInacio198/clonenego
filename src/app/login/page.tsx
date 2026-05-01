@@ -2,9 +2,10 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Lock, Eye, EyeOff, Loader2, Shield } from 'lucide-react';
+import { Lock, Eye, EyeOff, Loader2, Shield, Mail } from 'lucide-react';
 
 function LoginContent() {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -22,14 +23,16 @@ function LoginContent() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ email, password }),
       });
+
+      const data = await res.json();
 
       if (res.ok) {
         router.push(from);
         router.refresh();
       } else {
-        setError('Senha incorreta. Tente novamente.');
+        setError(data.error || 'Erro ao realizar login. Tente novamente.');
       }
     } catch {
       setError('Erro de conexão. Tente novamente.');
@@ -57,10 +60,25 @@ function LoginContent() {
               <Shield size={32} className="text-white" />
             </div>
             <h1 className="text-2xl font-bold text-white">SnapFunnel</h1>
-            <p className="text-blue-300 text-sm mt-1">Área Restrita — Somente Administrador</p>
+            <p className="text-blue-300 text-sm mt-1">Área Restrita — Acesso Autorizado</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-blue-200 mb-2">
+                <Mail size={14} className="inline mr-1" /> Seu E-mail
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="seu@email.com"
+                required
+                autoFocus
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-blue-200 mb-2">
                 <Lock size={14} className="inline mr-1" /> Senha de Acesso
@@ -72,7 +90,6 @@ function LoginContent() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
                   required
-                  autoFocus
                   className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
                 />
                 <button
@@ -93,7 +110,7 @@ function LoginContent() {
 
             <button
               type="submit"
-              disabled={loading || !password}
+              disabled={loading || !password || !email}
               className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
             >
               {loading ? (

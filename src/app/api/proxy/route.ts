@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function GET(req: Request) {
   return handleProxy(req);
@@ -28,6 +29,33 @@ async function handleProxy(req: Request) {
   }
 
   try {
+    // 1. Segurança: Validar se o domínio é permitido
+    const targetUrlObj = new URL(targetUrl);
+    const targetDomain = targetUrlObj.hostname;
+    
+    // Domínios de rastreamento sempre permitidos
+    const whiteList = [
+      'cdn.utmify.com.br', 
+      'connect.facebook.net', 
+      'facebook.com', 
+      'googletagmanager.com', 
+      'google-analytics.com'
+    ];
+
+    if (!whiteList.some(d => targetDomain.includes(d))) {
+      // Verificar se o domínio pertence a algum quiz clonado no banco
+      const { data: isAuthorized } = await supabaseAdmin
+        .from('quizzes')
+        .select('id')
+        .ilike('original_url', `%${targetDomain}%`)
+        .limit(1);
+
+      if (!isAuthorized || isAuthorized.length === 0) {
+        console.warn('Proxy bloqueado para:', targetDomain);
+        return NextResponse.json({ error: 'Domínio não autorizado pelo Proxy' }, { status: 403 });
+      }
+    }
+
     const headers = new Headers();
     req.headers.forEach((value, key) => {
       const lowerKey = key.toLowerCase();

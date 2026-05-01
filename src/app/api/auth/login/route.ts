@@ -1,11 +1,29 @@
 import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function POST(req: Request) {
-  const { password } = await req.json();
+  const { email, password } = await req.json();
   const adminSecret = process.env.ADMIN_SECRET || 'admin123';
 
+  // 1. Validar Senha
   if (password !== adminSecret) {
     return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 });
+  }
+
+  // 2. Validar se o E-mail está autorizado no banco
+  if (!email) {
+    return NextResponse.json({ error: 'E-mail é obrigatório' }, { status: 400 });
+  }
+
+  const { data: authorized, error } = await supabaseAdmin
+    .from('authorized_admins')
+    .select('email')
+    .eq('email', email.toLowerCase().trim())
+    .single();
+
+  if (error || !authorized) {
+    console.error('Tentativa de login não autorizada:', email);
+    return NextResponse.json({ error: 'Este e-mail não tem permissão de acesso' }, { status: 403 });
   }
 
   const response = NextResponse.json({ success: true });

@@ -3,32 +3,28 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const authCookie = request.cookies.get('admin_auth');
 
-  // Proteger o dashboard e as rotas sensíveis de API (Criação, Edição, Deleção)
-  const isProtectedPath = 
-    pathname.startsWith('/dashboard') || 
-    pathname.startsWith('/api/clone') || 
-    pathname.startsWith('/api/quiz');
-
-  if (isProtectedPath) {
-    const authCookie = request.cookies.get('admin_auth')?.value;
-    const adminSecret = process.env.ADMIN_SECRET || 'admin123';
-
-    if (authCookie !== adminSecret) {
-      // Se for uma rota de API, retorna 401 (Não Autorizado) para bloquear bots e hackers
+  // 1. Proteger rotas do Dashboard e APIs de Gerenciamento
+  // Se tentar acessar /dashboard ou /api/quiz/* sem estar logado, redireciona/bloqueia
+  if (pathname.startsWith('/dashboard') || pathname.startsWith('/api/quiz')) {
+    if (!authCookie) {
+      // Se for uma rota de API, retorna erro 401
       if (pathname.startsWith('/api/')) {
-        return NextResponse.json({ error: 'Acesso Negado: Tentativa de Invasão Bloqueada' }, { status: 401 });
+        return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
       }
-      // Se for página web, redireciona pro login
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('from', pathname);
-      return NextResponse.redirect(loginUrl);
+      // Se for uma página, redireciona para o login
+      return NextResponse.redirect(new URL('/login', request.url));
     }
   }
 
   return NextResponse.next();
 }
 
+// Configurar quais caminhos o middleware deve observar
 export const config = {
-  matcher: ['/dashboard/:path*', '/api/clone/:path*', '/api/quiz/:path*'],
+  matcher: [
+    '/dashboard/:path*',
+    '/api/quiz/:path*',
+  ],
 };
