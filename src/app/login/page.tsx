@@ -63,6 +63,7 @@ function LoginContent() {
             <p className="text-blue-300 text-sm mt-1">Área Restrita — Acesso Autorizado</p>
           </div>
 
+          <form onSubmit={handleLogin} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-blue-200 mb-2">
                 <Mail size={14} className="inline mr-1" /> Seu E-mail
