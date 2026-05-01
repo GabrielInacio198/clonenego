@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import * as cheerio from 'cheerio';
 
@@ -12,10 +12,10 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     .single();
 
   if (error || !quiz || !quiz.original_url) {
-    return new NextResponse('Quiz não encontrado ou sem URL original', { status: 404 });
+    return new NextResponse('Quiz n├úo encontrado ou sem URL original', { status: 404 });
   }
 
-  // Grava a visualização de forma assíncrona (não usa await para não atrasar o carregamento)
+  // Grava a visualiza├º├úo de forma ass├¡ncrona (n├úo usa await para n├úo atrasar o carregamento)
   supabaseAdmin.from('quiz_views').insert([{ quiz_id: params.id }]).then(({error}) => {
      if (error) console.error('Erro ao registrar view:', error);
   });
@@ -49,7 +49,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
       <script id="god-mode-v7">
         console.log("God Mode v7 Ativado - Proxy + Mutation Dictionary (LIVE PROXY)");
         
-        // Salvar os parâmetros originais ANTES de limpar a URL
+        // Salvar os par├ómetros originais ANTES de limpar a URL
         const __ORIGINAL_SEARCH__ = window.location.search;
         const __ORIGINAL_PARAMS__ = new URLSearchParams(window.location.search);
         try { window.history.replaceState(null, '', '/' + window.location.search); } catch(e) {}
@@ -182,7 +182,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           attributeFilter: ['href', 'src']
         });
 
-        // HACK: Preparar a URL preservando os parâmetros da Utmify
+        // HACK: Preparar a URL preservando os par├ómetros da Utmify
         const prepareCheckoutUrl = (customUrl) => {
            let finalUrl = customUrl || window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
            if (!finalUrl) return null;
@@ -190,7 +190,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
            try {
               const urlObj = new URL(finalUrl);
               
-              // 1. Repassar os parâmetros originais da URL (salvos antes do replaceState)
+              // 1. Repassar os par├ómetros originais da URL (salvos antes do replaceState)
               const paramsToForward = __ORIGINAL_PARAMS__ || new URLSearchParams(window.location.search);
               paramsToForward.forEach((value, key) => {
                  if (!urlObj.searchParams.has(key)) {
@@ -198,7 +198,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
                  }
               });
 
-              // 2. Tentar roubar parâmetros de rastreamento (UTMs, xcod, sck, etc) de links já decorados pela Utmify
+              // 2. Tentar roubar par├ómetros de rastreamento (UTMs, xcod, sck, etc) de links j├í decorados pela Utmify
               const decoratedLink = document.querySelector('a[href*="xcod="], a[href*="utm_source="], a[href*="sck="]');
               if (decoratedLink) {
                  try {
@@ -220,7 +220,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
            }
         };
 
-        // HACK: Interceptação Agressiva de Checkout
+        // HACK: Intercepta├º├úo Agressiva de Checkout
         const forceCheckout = (e, customUrl) => {
           const finalUrl = prepareCheckoutUrl(customUrl);
           if (finalUrl) {
@@ -234,7 +234,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           return false;
         };
 
-        // Interceptar clicks em qualquer coisa que pareça um gatilho de checkout
+        // Interceptar clicks em qualquer coisa que pare├ºa um gatilho de checkout
         document.addEventListener('click', (e) => {
           const target = e.target.closest('a, button, [role="button"], div, span');
           if (!target) return;
@@ -244,7 +244,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           const btnId = target.getAttribute('id') || '';
           const btnClass = target.getAttribute('class') || '';
           
-          // Verificar se a URL já é o nosso checkout (decorado ou não)
+          // Verificar se a URL j├í ├® o nosso checkout (decorado ou n├úo)
           const r = window.QUIZ_REPLACEMENTS;
           const checkoutBases = [
              r['__CHECKOUT_URL__'],
@@ -265,7 +265,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
              } catch(err) {}
           }
           
-          // Verificar se este link/botão específico tem uma substituição individual
+          // Verificar se este link/bot├úo espec├¡fico tem uma substitui├º├úo individual
           const specificUrl = (href && window.QUIZ_REPLACEMENTS[href]) 
             || (btnId && window.QUIZ_REPLACEMENTS[btnId]) 
             || (btnClass && window.QUIZ_REPLACEMENTS[btnClass])
@@ -295,7 +295,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
             
             if (!planUrl) {
               if (isAlreadyOurCheckout) {
-                 // Já é o nosso checkout, possivelmente decorado com UTMs pela Utmify. Usar como base!
+                 // J├í ├® o nosso checkout, possivelmente decorado com UTMs pela Utmify. Usar como base!
                  planUrl = href;
               } else {
                  if (text.includes('1 m') || text.includes('mensal') || text.includes('plano de 1')) {
@@ -311,7 +311,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           }
         }, true);
 
-        // Hook window.open e window.location via Proxy de Navegação
+        // Hook window.open e window.location via Proxy de Navega├º├úo
         const origOpen = window.open;
         window.open = function(url, target, features) {
           if (window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'] && typeof url === 'string') {
@@ -357,7 +357,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     $('head').prepend(safeGuardV7);
     
     // Injetar o script da Utmify UTMs diretamente no quiz proxeado
-    // O layout.tsx só cobre o dashboard, então precisamos injetar aqui também
+    // O layout.tsx s├│ cobre o dashboard, ent├úo precisamos injetar aqui tamb├®m
     $('head').append(`
 <!-- UTMIFY UTMs TRACKING -->
 <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>
