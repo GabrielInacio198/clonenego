@@ -73,6 +73,24 @@ export default function DashboardLayout({
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
+        {/* Top Header */}
+        <header className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
+              <span className="text-white text-lg">⚡</span>
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-slate-800 tracking-tight">SnapFunnel</h1>
+              <p className="text-xs text-slate-400 -mt-0.5">Painel de Controle</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+              ● Online
+            </span>
+          </div>
+        </header>
+
         <div className="p-8">
           {children}
         </div>
