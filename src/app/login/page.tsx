@@ -63,7 +63,6 @@ function LoginContent() {
             <p className="text-blue-300 text-sm mt-1">Área Restrita — Acesso Autorizado</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-blue-200 mb-2">
                 <Mail size={14} className="inline mr-1" /> Seu E-mail
@@ -75,7 +74,7 @@ function LoginContent() {
                 placeholder="seu@email.com"
                 required
                 autoFocus
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium"
               />
             </div>
 
@@ -88,9 +87,9 @@ function LoginContent() {
                   type={showPwd ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
+                  placeholder="Sua senha secreta"
                   required
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
+                  className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12 font-medium"
                 />
                 <button
                   type="button"
