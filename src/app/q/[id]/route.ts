@@ -89,50 +89,85 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           return _origOpen.call(this, method, url, async, user, password);
         };
 
+        window.__IS_APPLYING__ = false;
+
         function applyReplacements(node) {
-          if (!node) return;
-          if (node.nodeType === 3) { // Text node
-            const val = node.nodeValue?.trim();
-            if (val && window.QUIZ_REPLACEMENTS[val]) {
-              const newVal = window.QUIZ_REPLACEMENTS[val];
-              if (typeof newVal === 'string' && !newVal.startsWith('http')) {
-                node.nodeValue = node.nodeValue.replace(val, newVal);
+          if (!node || window.__IS_APPLYING__) return;
+          
+          window.__IS_APPLYING__ = true;
+          try {
+            // 1. Processar estilos customizados
+            Object.keys(window.QUIZ_REPLACEMENTS).forEach(key => {
+              if (key.startsWith('__STYLE__::')) {
+                const selector = key.replace('__STYLE__::', '');
+                const styles = window.QUIZ_REPLACEMENTS[key];
+                try {
+                  document.querySelectorAll(selector).forEach(el => {
+                    const existingStyle = el.getAttribute('style') || '';
+                    if (!existingStyle.includes(styles)) {
+                      el.setAttribute('style', existingStyle + (existingStyle.endsWith(';') ? '' : ';') + styles);
+                    }
+                  });
+                } catch(e) {}
               }
-            }
-          } else if (node.nodeType === 1) { // Element node
-            if (node.hasAttribute('href')) {
-               const href = node.getAttribute('href');
-               if (href && window.QUIZ_REPLACEMENTS[href]) {
-                  node.setAttribute('href', window.QUIZ_REPLACEMENTS[href]);
-               }
-            }
+            });
 
-            if (node.tagName === 'IMG' && node.hasAttribute('src')) {
-               const src = node.getAttribute('src');
-               if (src && window.QUIZ_REPLACEMENTS[src]) {
-                  node.setAttribute('src', window.QUIZ_REPLACEMENTS[src]);
-               }
-            }
+            const walk = (n) => {
+              if (n.nodeType === 3) { // Text node
+                const val = n.nodeValue?.trim();
+                if (val && window.QUIZ_REPLACEMENTS[val]) {
+                  const newVal = window.QUIZ_REPLACEMENTS[val];
+                  if (typeof newVal === 'string' && !newVal.startsWith('__STYLE__::') && !newVal.startsWith('http')) {
+                    n.nodeValue = n.nodeValue.replace(val, newVal);
+                  }
+                }
+              } else if (n.nodeType === 1) { // Element node
+                if (n.hasAttribute('href')) {
+                   const href = n.getAttribute('href');
+                   if (href && window.QUIZ_REPLACEMENTS[href]) {
+                      n.setAttribute('href', window.QUIZ_REPLACEMENTS[href]);
+                   }
+                }
 
-            node.childNodes.forEach(applyReplacements);
+                if (n.tagName === 'IMG' && n.hasAttribute('src')) {
+                   const src = n.getAttribute('src');
+                   if (src && window.QUIZ_REPLACEMENTS[src]) {
+                      n.setAttribute('src', window.QUIZ_REPLACEMENTS[src]);
+                   }
+                }
+                n.childNodes.forEach(walk);
+              }
+            };
+            
+            if (node !== null) walk(node);
+          } finally {
+            window.__IS_APPLYING__ = false;
           }
         }
 
         const observer = new MutationObserver((mutations) => {
+          if (window.__IS_APPLYING__) return;
+          
+          let hasMeaningfulChange = false;
           mutations.forEach(mutation => {
             if (mutation.type === 'childList') {
-              mutation.addedNodes.forEach(node => applyReplacements(node));
+              mutation.addedNodes.forEach(node => {
+                applyReplacements(node);
+                hasMeaningfulChange = true;
+              });
             } else if (mutation.type === 'characterData') {
               const oldVal = mutation.target.nodeValue?.trim();
               if (oldVal && window.QUIZ_REPLACEMENTS[oldVal]) {
-                 mutation.target.nodeValue = mutation.target.nodeValue.replace(oldVal, window.QUIZ_REPLACEMENTS[oldVal]);
+                 applyReplacements(mutation.target.parentNode || mutation.target);
+                 hasMeaningfulChange = true;
               }
             } else if (mutation.type === 'attributes') {
               const attr = mutation.attributeName;
               if (attr === 'href' || attr === 'src') {
                  const val = mutation.target.getAttribute(attr);
                  if (val && window.QUIZ_REPLACEMENTS[val]) {
-                    mutation.target.setAttribute(attr, window.QUIZ_REPLACEMENTS[val]);
+                    applyReplacements(mutation.target);
+                    hasMeaningfulChange = true;
                  }
               }
             }

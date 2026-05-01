@@ -1,15 +1,30 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Save, Settings, Code, MonitorSmartphone, Type, X, Link as LinkIcon, Image, Trash2, Globe, Copy } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Save, Settings, Code, MonitorSmartphone, Type, X, Link as LinkIcon, Image, Trash2, Globe, Copy, Upload, Palette, Smile } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
+
+// Helper: RGB to Hex
+function rgbToHex(rgb: string): string {
+  if (!rgb || rgb === 'transparent' || rgb === 'rgba(0, 0, 0, 0)') return '#ffffff';
+  const match = rgb.match(/\d+/g);
+  if (!match || match.length < 3) return '#000000';
+  return '#' + match.slice(0, 3).map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+}
 
 export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) {
+  const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('mobile');
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'visual' | 'advanced'>('visual');
   const [replacements, setReplacements] = useState<Record<string, string>>(initialQuiz.theme_config?.replacements || {});
-  const [editingText, setEditingText] = useState<{ original: string, current: string, type: string } | null>(null);
+  const [editingText, setEditingText] = useState<{ original: string, current: string, type: string, cssSelector?: string, currentStyles?: any } | null>(null);
   const [isEditMode, setIsEditMode] = useState(true);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [styleValues, setStyleValues] = useState({ backgroundColor: '#ffffff', color: '#000000', borderRadius: '0' });
   
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const router = useRouter();
@@ -54,21 +69,60 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
            if (e.target && e.target.nodeType === 1) e.target.classList.remove('quiz-editor-hover');
         });
 
+        // Gerar CSS path para um elemento
+        const generateCSSPath = (el: any): string => {
+          const path: string[] = [];
+          let current = el;
+          while (current && current !== doc.body && current !== doc.documentElement) {
+            let segment = current.tagName.toLowerCase();
+            if (current.id) { path.unshift('#' + current.id); break; }
+            const parent = current.parentElement;
+            if (parent) {
+              const siblings = Array.from(parent.children).filter((s: any) => s.tagName === current.tagName);
+              if (siblings.length > 1) {
+                segment += ':nth-of-type(' + (siblings.indexOf(current) + 1) + ')';
+              }
+            }
+            path.unshift(segment);
+            current = current.parentElement;
+          }
+          return path.join(' > ');
+        };
+
         doc.body.addEventListener('click', (e: any) => {
           if (!(win as any).isEditMode) return;
 
           e.preventDefault();
           e.stopPropagation();
           
+          // Tentar elementos interativos primeiro
           let target = e.target.closest('a, button, img, [role="button"], .btn, .button');
-          if (!target) return;
+          
+          // Fallback: elementos de texto
+          if (!target) {
+            target = e.target.closest('h1, h2, h3, h4, h5, h6, p, span, li, label, td, th, div, section, header, footer');
+          }
+          // Último recurso: o próprio elemento clicado
+          if (!target) {
+            target = e.target;
+          }
+          if (!target || target === doc.body || target === doc.documentElement) return;
 
           let originalValue = '';
           let type = 'TEXT';
+          const cssSelector = generateCSSPath(target);
+          
+          // Capturar estilos computados
+          const computed = doc.defaultView?.getComputedStyle(target);
+          const currentStyles = {
+            backgroundColor: computed?.backgroundColor,
+            color: computed?.color,
+            borderRadius: computed?.borderRadius
+          };
 
           // Se for botão ou link, tratamos como LINK para permitir checkout
           if (target.tagName === 'A' || target.tagName === 'BUTTON' || target.getAttribute('role') === 'button' || target.classList.contains('btn')) {
-             originalValue = target.getAttribute('href') || target.textContent.trim() || 'Botão sem link';
+             originalValue = target.getAttribute('href') || target.textContent?.trim() || 'Botão sem link';
              type = 'LINK';
           } 
           else if (target.tagName === 'IMG') {
@@ -76,7 +130,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
              type = 'IMAGE';
           } 
           else {
-            let textNode = Array.from(target.childNodes).find((n: any) => n.nodeType === 3 && n.nodeValue.trim() !== '');
+            let textNode = Array.from(target.childNodes).find((n: any) => n.nodeType === 3 && n.nodeValue?.trim() !== '');
             originalValue = textNode ? (textNode as any).nodeValue.trim() : target.textContent.trim();
           }
 
@@ -84,7 +138,9 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
              window.parent.postMessage({ 
                 type: 'EDIT_ELEMENT', 
                 originalValue, 
-                elementType: type 
+                elementType: type,
+                cssSelector,
+                currentStyles
              }, '*');
           }
         }, true);
@@ -104,11 +160,34 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
       if (e.data?.type === 'EDIT_ELEMENT') {
+         const sel = e.data.cssSelector || '';
+         const styles = e.data.currentStyles || {};
          setEditingText({
             original: e.data.originalValue,
             current: replacements[e.data.originalValue] || e.data.originalValue,
-            type: e.data.elementType
+            type: e.data.elementType,
+            cssSelector: sel,
+            currentStyles: styles
          });
+         // Carregar estilos existentes (se já foram editados antes) ou usar os computados
+         const existingStyle = sel ? replacements[`__STYLE__::${sel}`] : '';
+         if (existingStyle) {
+           const parsed: any = { backgroundColor: '#ffffff', color: '#000000', borderRadius: '0' };
+           existingStyle.split(';').forEach((s: string) => {
+             const [k, v] = s.split(':').map(x => x.trim());
+             if (k === 'background-color') parsed.backgroundColor = v;
+             if (k === 'color') parsed.color = v;
+             if (k === 'border-radius') parsed.borderRadius = parseInt(v) || 0;
+           });
+           setStyleValues(parsed);
+         } else {
+           setStyleValues({
+             backgroundColor: rgbToHex(styles.backgroundColor || ''),
+             color: rgbToHex(styles.color || ''),
+             borderRadius: (parseInt(styles.borderRadius) || 0).toString()
+           });
+         }
+         setShowEmojiPicker(false);
       }
     };
     window.addEventListener('message', handleMessage);
@@ -124,14 +203,40 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
          delete newReplacements[editingText.original];
      }
 
+     // Salvar estilos se existirem alterações
+     if (editingText.cssSelector) {
+       const cssString = `background-color:${styleValues.backgroundColor};color:${styleValues.color};border-radius:${styleValues.borderRadius}px`;
+       newReplacements[`__STYLE__::${editingText.cssSelector}`] = cssString;
+     }
+
      setReplacements(newReplacements);
      setEditingText(null);
+     setShowEmojiPicker(false);
      
      // Sincronizar com o iframe
      const win = iframeRef.current?.contentWindow;
      if (win) {
        win.postMessage({ type: 'SYNC_REPLACEMENTS', replacements: newReplacements }, '*');
      }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingText) return;
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('quizId', initialQuiz.id);
+      const res = await fetch('/api/quiz/upload-image', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setEditingText({ ...editingText, current: data.url });
+    } catch (err: any) {
+      alert('Erro no upload: ' + err.message);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const [customDomain, setCustomDomain] = useState<string>(initialQuiz.theme_config?.custom_domain || '');
@@ -345,7 +450,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
               </div>
 
               {editingText ? (
-                <div className="bg-white border-2 border-blue-500 rounded-xl p-4 shadow-sm animate-in fade-in slide-in-from-top-4">
+                <div className="bg-white border-2 border-blue-500 rounded-xl p-4 shadow-sm animate-in fade-in slide-in-from-top-4 overflow-visible relative z-50">
                   <div className="flex justify-between items-center mb-3">
                     <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                       {editingText.type === 'LINK' ? (
@@ -356,61 +461,159 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                         <><Type size={16} className="text-blue-500"/> Editando Texto</>
                       )}
                     </h3>
-                    <button onClick={() => setEditingText(null)} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={() => { setEditingText(null); setShowEmojiPicker(false); }} className="text-gray-400 hover:text-gray-600">
                       <X size={18} />
                     </button>
                   </div>
                   
+                  {/* Visual Preview / Original Value */}
                   <div className="mb-4">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
-                      {editingText.type === 'LINK' ? 'URL Original (Alvo)' : editingText.type === 'IMAGE' ? 'URL da Imagem Original' : 'Texto Original (Alvo)'}
+                    <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wider">
+                      Valor Original:
                     </label>
-                    <div className="p-2 bg-gray-50 rounded border border-gray-100 text-sm text-gray-600 break-words line-clamp-3">
-                      {editingText.original}
-                    </div>
+                    {editingText.type === 'IMAGE' ? (
+                      <div className="relative h-24 w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                        <img src={editingText.original} alt="Original" className="h-full w-full object-contain" />
+                      </div>
+                    ) : (
+                      <div className="p-2 bg-gray-50 rounded border border-gray-100 text-sm text-gray-600 break-words line-clamp-2 italic">
+                        {editingText.original}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="mb-4">
-                    <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
-                      {editingText.type === 'LINK' ? '🏷️ Nome do Botão / Link' : editingText.type === 'IMAGE' ? '🖼️ URL da Imagem' : '✍️ Editar Texto'}
-                    </label>
-                    
-                    {/* Campo para o TEXTO do botão */}
-                    {editingText.type === 'LINK' && (
-                      <div className="mb-3">
-                        <span className="text-[10px] text-gray-400 block mb-1">TEXTO QUE APARECE NO BOTÃO:</span>
+                  {/* Editing Controls */}
+                  <div className="space-y-4">
+                    {/* Image Upload / URL */}
+                    {editingText.type === 'IMAGE' && (
+                      <div className="space-y-3">
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                          🖼️ Alterar Imagem
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                           <button 
+                             onClick={() => document.getElementById('image-upload')?.click()}
+                             disabled={isUploading}
+                             className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-purple-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all text-purple-600 gap-1"
+                           >
+                             <Upload size={20} />
+                             <span className="text-[10px] font-bold">{isUploading ? 'Enviando...' : 'Fazer Upload'}</span>
+                           </button>
+                           <input id="image-upload" type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                           
+                           <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 flex flex-col items-center justify-center text-center">
+                              <span className="text-[10px] text-gray-400 uppercase">Dica:</span>
+                              <span className="text-[9px] text-gray-500 leading-tight">Envie imagens leves (WebP/PNG)</span>
+                           </div>
+                        </div>
                         <input 
                           type="text"
-                          className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-black font-bold"
-                          placeholder="Ex: Receber meu Plano"
-                          defaultValue={editingText.original.startsWith('http') ? 'Botão' : editingText.original}
-                          onChange={(e) => {
-                             // Lógica para salvar a troca de texto do botão separadamente se necessário
-                             // Por enquanto vamos focar em não deixar o usuário se confundir
-                          }}
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs"
+                          placeholder="Ou cole uma URL externa aqui..."
+                          value={editingText.current}
+                          onChange={(e) => setEditingText({...editingText, current: e.target.value})}
                         />
                       </div>
                     )}
 
-                    <span className="text-[10px] text-gray-400 block mb-1">
-                      {editingText.type === 'LINK' ? 'LINK DE DESTINO (O CHECKOUT):' : 'NOVO CONTEÚDO:'}
-                    </span>
-                    <textarea 
-                      autoFocus
-                      className="w-full px-4 py-3 bg-white border-2 border-blue-100 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-base text-black font-medium shadow-inner"
-                      rows={editingText.type === 'TEXT' ? 5 : 3}
-                      value={editingText.current}
-                      onChange={(e) => setEditingText({...editingText, current: e.target.value})}
-                      placeholder={editingText.type === 'LINK' ? '🔗 Cole seu link de checkout aqui...' : 'Escreva o novo texto aqui...'}
-                      style={{ color: '#000000', backgroundColor: '#ffffff' }}
-                    />
+                    {/* Text Editing + Emoji Picker */}
+                    {editingText.type !== 'IMAGE' && (
+                      <div className="space-y-2 relative">
+                        <div className="flex justify-between items-center">
+                          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                            {editingText.type === 'LINK' ? '🔗 Link / Checkout' : '✍️ Editar Texto'}
+                          </label>
+                          <button 
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            className="p-1.5 text-gray-500 hover:text-yellow-500 hover:bg-yellow-50 rounded-lg transition-all"
+                            title="Inserir Emoji"
+                          >
+                            <Smile size={18} />
+                          </button>
+                        </div>
+                        
+                        <textarea 
+                          autoFocus
+                          className="w-full px-4 py-3 bg-white border-2 border-blue-100 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-base text-black font-medium shadow-inner"
+                          rows={editingText.type === 'TEXT' ? 4 : 2}
+                          value={editingText.current}
+                          onChange={(e) => setEditingText({...editingText, current: e.target.value})}
+                          placeholder={editingText.type === 'LINK' ? 'https://pay.kirvano.com/...' : 'Escreva aqui...'}
+                        />
+
+                        {showEmojiPicker && (
+                          <div className="absolute bottom-full left-0 mb-2 z-[60] shadow-2xl rounded-2xl overflow-hidden">
+                            <EmojiPicker 
+                              onEmojiClick={(emojiData) => {
+                                setEditingText({ ...editingText, current: editingText.current + emojiData.emoji });
+                                setShowEmojiPicker(false);
+                              }}
+                              width={280}
+                              height={350}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Style Editor (Colors & Border Radius) */}
+                    {editingText.cssSelector && (
+                      <div className="pt-4 border-t border-gray-100 space-y-3">
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1">
+                          <Palette size={14} className="text-pink-500" /> Estilo do Elemento
+                        </label>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="text-[10px] text-gray-400 block mb-1">FUNDO:</span>
+                            <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-200">
+                              <input 
+                                type="color" 
+                                value={styleValues.backgroundColor}
+                                onChange={(e) => setStyleValues({...styleValues, backgroundColor: e.target.value})}
+                                className="h-6 w-10 rounded cursor-pointer"
+                              />
+                              <span className="text-[10px] font-mono uppercase">{styleValues.backgroundColor}</span>
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-gray-400 block mb-1">TEXTO:</span>
+                            <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-200">
+                              <input 
+                                type="color" 
+                                value={styleValues.color}
+                                onChange={(e) => setStyleValues({...styleValues, color: e.target.value})}
+                                className="h-6 w-10 rounded cursor-pointer"
+                              />
+                              <span className="text-[10px] font-mono uppercase">{styleValues.color}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-[10px] text-gray-400 uppercase">ARREDONDAMENTO:</span>
+                            <span className="text-[10px] font-bold text-blue-600">{styleValues.borderRadius}px</span>
+                          </div>
+                          <input 
+                            type="range" 
+                            min="0" 
+                            max="50" 
+                            value={styleValues.borderRadius}
+                            onChange={(e) => setStyleValues({...styleValues, borderRadius: e.target.value})}
+                            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <button 
                     onClick={applyTextChange}
-                    className="w-full py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold text-base transition-all shadow-lg active:scale-95"
+                    className="w-full mt-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold text-base transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
                   >
-                    Confirmar e Aplicar
+                    <Save size={18} />
+                    Salvar Alterações
                   </button>
                 </div>
               ) : (
@@ -555,30 +758,56 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
       </div>
 
       {/* Área Central (Mockup de Preview/Edição) */}
-      <div className="flex-1 flex flex-col items-center justify-center bg-gray-100 p-8 overflow-y-auto">
+      <div className="flex-1 flex flex-col bg-gray-100 overflow-hidden">
         
-        {/* Aviso */}
-        <div className="mb-6 flex items-center gap-2 text-gray-600 bg-white px-4 py-2 rounded-full shadow-sm">
-          <Settings size={18} className="animate-spin-slow text-blue-500" />
-          <span className="text-sm font-medium">Modo God Mode ativado. A lógica original do quiz está 100% preservada.</span>
+        {/* Barra de Controle de Visualização */}
+        <div className="bg-white border-b border-gray-200 px-6 py-2 flex items-center justify-between shadow-sm z-10">
+          <div className="flex items-center gap-2 text-gray-600">
+            <Settings size={18} className="animate-spin-slow text-blue-500" />
+            <span className="text-xs font-medium">Modo God Mode Ativado. Edite em tempo real.</span>
+          </div>
+
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button 
+              onClick={() => setViewMode('mobile')}
+              className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'mobile' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <MonitorSmartphone size={14} /> CELULAR
+            </button>
+            <button 
+              onClick={() => setViewMode('desktop')}
+              className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${viewMode === 'desktop' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <Globe size={14} /> DESKTOP
+            </button>
+          </div>
+
+          <div className="w-40"></div> {/* Spacer to center the toggle */}
         </div>
 
-        {/* Mockup do Celular */}
-        <div className="relative w-[375px] h-[812px] bg-white rounded-[3rem] shadow-2xl overflow-hidden border-[8px] border-slate-900 shrink-0">
-          
-          {/* Notch do Celular */}
-          <div className="absolute top-0 inset-x-0 h-6 bg-slate-900 rounded-b-3xl w-40 mx-auto z-20"></div>
+        {/* Mockup / Preview Container */}
+        <div className="flex-1 overflow-auto p-8 flex justify-center items-start">
+          <div 
+            className={`bg-white shadow-2xl transition-all duration-300 ease-in-out relative origin-top ${
+              viewMode === 'mobile' 
+                ? 'w-[375px] h-[812px] rounded-[3rem] border-[12px] border-gray-900 overflow-hidden mt-4 mb-12 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)]' 
+                : 'w-full max-w-5xl h-full rounded-xl border border-gray-200'
+            }`}
+          >
+            {/* Notch do Celular (Apenas em mobile) */}
+            {viewMode === 'mobile' && (
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-6 bg-gray-900 rounded-b-3xl z-50"></div>
+            )}
 
-          {/* Iframe que carrega o HTML clonado */}
-          <iframe 
-            ref={iframeRef}
-            src={`/q/${initialQuiz.id}`}
-            className="w-full h-full border-0 absolute inset-0 z-10"
-            onLoad={handleIframeLoad}
-            title="Quiz Player Preview"
-          />
+            <iframe
+              ref={iframeRef}
+              src={`/q/${initialQuiz.id}`}
+              className="w-full h-full border-none"
+              onLoad={handleIframeLoad}
+              title="Quiz Preview"
+            />
+          </div>
         </div>
-
       </div>
     </div>
   );
