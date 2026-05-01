@@ -49,7 +49,10 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
       <script id="god-mode-v7">
         console.log("God Mode v7 Ativado - Proxy + Mutation Dictionary (LIVE PROXY)");
         
-        try { window.history.replaceState(null, '', '/'); } catch(e) {}
+        // Salvar os parâmetros originais ANTES de limpar a URL
+        const __ORIGINAL_SEARCH__ = window.location.search;
+        const __ORIGINAL_PARAMS__ = new URLSearchParams(window.location.search);
+        try { window.history.replaceState(null, '', '/' + window.location.search); } catch(e) {}
 
         const proxyUrl = '/api/proxy?url=';
         const targetBaseUrl = '${baseUrl}';
@@ -144,27 +147,50 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           attributeFilter: ['href', 'src']
         });
 
+        // HACK: Preparar a URL preservando os parâmetros da Utmify
+        const prepareCheckoutUrl = (customUrl) => {
+           let finalUrl = customUrl || window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
+           if (!finalUrl) return null;
+           
+           try {
+              const urlObj = new URL(finalUrl);
+              
+              // 1. Repassar os parâmetros originais da URL (salvos antes do replaceState)
+              const paramsToForward = __ORIGINAL_PARAMS__ || new URLSearchParams(window.location.search);
+              paramsToForward.forEach((value, key) => {
+                 if (!urlObj.searchParams.has(key)) {
+                    urlObj.searchParams.set(key, value);
+                 }
+              });
+
+              // 2. Tentar roubar parâmetros de rastreamento (UTMs, xcod, sck, etc) de links já decorados pela Utmify
+              const decoratedLink = document.querySelector('a[href*="xcod="], a[href*="utm_source="], a[href*="sck="]');
+              if (decoratedLink) {
+                 try {
+                    const decUrl = new URL(decoratedLink.href);
+                    decUrl.searchParams.forEach((value, key) => {
+                       if (!urlObj.searchParams.has(key)) {
+                          urlObj.searchParams.set(key, value);
+                       }
+                    });
+                 } catch(err) {}
+              }
+
+              return urlObj.toString();
+           } catch(err) {
+              if (__ORIGINAL_SEARCH__) {
+                 return finalUrl + (finalUrl.includes('?') ? '&' : '?') + __ORIGINAL_SEARCH__.substring(1);
+              }
+              return finalUrl;
+           }
+        };
+
         // HACK: Interceptação Agressiva de Checkout
         const forceCheckout = (e, customUrl) => {
-          let finalUrl = customUrl || window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
+          const finalUrl = prepareCheckoutUrl(customUrl);
           if (finalUrl) {
             if (e && e.preventDefault) e.preventDefault();
             if (e && e.stopPropagation) e.stopPropagation();
-            
-            // Repassar os parâmetros da URL (UTMs, src, etc) para o checkout
-            if (window.location.search) {
-               try {
-                 const urlObj = new URL(finalUrl);
-                 const currentParams = new URLSearchParams(window.location.search);
-                 currentParams.forEach((value, key) => {
-                    urlObj.searchParams.set(key, value);
-                 });
-                 finalUrl = urlObj.toString();
-               } catch(err) {
-                 // Fallback caso a finalUrl não seja parseável
-                 finalUrl += (finalUrl.includes('?') ? '&' : '?') + window.location.search.substring(1);
-               }
-            }
             
             console.log("God Mode: Redirecionando para " + finalUrl);
             window.location.href = finalUrl;
@@ -183,6 +209,27 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           const btnId = target.getAttribute('id') || '';
           const btnClass = target.getAttribute('class') || '';
           
+          // Verificar se a URL já é o nosso checkout (decorado ou não)
+          const r = window.QUIZ_REPLACEMENTS;
+          const checkoutBases = [
+             r['__CHECKOUT_URL__'],
+             r['__CHECKOUT_PLAN_1__'],
+             r['__CHECKOUT_PLAN_2__'],
+             r['__CHECKOUT_PLAN_3__']
+          ].filter(Boolean).map(u => {
+             try { const obj = new URL(u); return obj.origin + obj.pathname; } 
+             catch(err) { return u; }
+          });
+
+          let isAlreadyOurCheckout = false;
+          if (href) {
+             try {
+                const hrefObj = new URL(href, window.location.origin);
+                const hrefBase = hrefObj.origin + hrefObj.pathname;
+                isAlreadyOurCheckout = checkoutBases.includes(hrefBase);
+             } catch(err) {}
+          }
+          
           // Verificar se este link/botão específico tem uma substituição individual
           const specificUrl = (href && window.QUIZ_REPLACEMENTS[href]) 
             || (btnId && window.QUIZ_REPLACEMENTS[btnId]) 
@@ -191,6 +238,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           
           // Se o texto contiver palavras de checkout ou o link for para um checkout conhecido
           const isCheckoutTrigger = 
+            isAlreadyOurCheckout ||
             text.includes('comprar') || 
             text.includes('checkout') || 
             text.includes('receber agora') ||
@@ -209,14 +257,19 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           if (isCheckoutTrigger || specificUrl) {
             // Multi-Checkout: tentar identificar qual plano foi clicado pelo texto
             let planUrl = specificUrl;
+            
             if (!planUrl) {
-              const r = window.QUIZ_REPLACEMENTS;
-              if (text.includes('1 m') || text.includes('mensal') || text.includes('plano de 1')) {
-                planUrl = r['__CHECKOUT_PLAN_1__'];
-              } else if (text.includes('3 m') || text.includes('trimestral') || text.includes('plano de 3')) {
-                planUrl = r['__CHECKOUT_PLAN_2__'];
-              } else if (text.includes('anual') || text.includes('12 m') || text.includes('plano anual')) {
-                planUrl = r['__CHECKOUT_PLAN_3__'];
+              if (isAlreadyOurCheckout) {
+                 // Já é o nosso checkout, possivelmente decorado com UTMs pela Utmify. Usar como base!
+                 planUrl = href;
+              } else {
+                 if (text.includes('1 m') || text.includes('mensal') || text.includes('plano de 1')) {
+                   planUrl = r['__CHECKOUT_PLAN_1__'];
+                 } else if (text.includes('3 m') || text.includes('trimestral') || text.includes('plano de 3')) {
+                   planUrl = r['__CHECKOUT_PLAN_2__'];
+                 } else if (text.includes('anual') || text.includes('12 m') || text.includes('plano anual')) {
+                   planUrl = r['__CHECKOUT_PLAN_3__'];
+                 }
               }
             }
             forceCheckout(e, planUrl);
@@ -228,7 +281,10 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         window.open = function(url, target, features) {
           if (window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'] && typeof url === 'string') {
             if (url.includes('pay.') || url.includes('checkout') || !url.includes(window.location.hostname)) {
-              return origOpen.call(window, window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'], target, features);
+              const finalUrl = prepareCheckoutUrl(window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__']);
+              if (finalUrl) {
+                 return origOpen.call(window, finalUrl, target, features);
+              }
             }
           }
           return origOpen.call(window, url, target, features);
@@ -265,6 +321,13 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
     $('head').prepend(safeGuardV7);
     
+    // Injetar o script da Utmify UTMs diretamente no quiz proxeado
+    // O layout.tsx só cobre o dashboard, então precisamos injetar aqui também
+    $('head').append(`
+<!-- UTMIFY UTMs TRACKING -->
+<script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>
+`);
+
     const themeConfig = quiz.theme_config || {};
     if (themeConfig.head_scripts) {
       $('head').append(`\n<!-- INJECTED HEAD SCRIPTS -->\n${themeConfig.head_scripts}\n`);

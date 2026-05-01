@@ -219,7 +219,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                     placeholder="ex: seudominio.com.br"
                     value={customDomain}
                     onChange={(e) => setCustomDomain(e.target.value.trim().replace(/^https?:\/\//, ''))}
-                    className="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white text-gray-800"
+                    className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm bg-gray-50 text-gray-900 placeholder-gray-500 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   />
                   
                   {/* Copy Link Button */}
@@ -481,7 +481,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                        else delete newReps['__CHECKOUT_URL__'];
                        setReplacements(newReps);
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-gray-50 text-gray-900 placeholder-gray-500 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm transition-all"
                  />
               </div>
 
@@ -490,7 +490,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                   Scripts do Head (Cabeçalho)
                 </label>
                 <textarea 
-                  className="w-full rounded-lg border-gray-300 border p-3 text-sm h-32 bg-white text-gray-900 font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-inner"
+                  className="w-full rounded-lg border-gray-300 border-2 p-3 text-sm h-32 bg-gray-50 text-gray-900 placeholder-gray-500 font-mono focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none shadow-inner transition-all"
                   placeholder="<script>... Código do Pixel ou Utmify ...</script>"
                   value={headScripts}
                   onChange={(e) => setHeadScripts(e.target.value)}
@@ -503,7 +503,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                   Scripts do Body (Rodapé)
                 </label>
                 <textarea 
-                  className="w-full rounded-lg border-gray-300 border p-3 text-sm h-32 bg-white text-gray-900 font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-inner"
+                  className="w-full rounded-lg border-gray-300 border-2 p-3 text-sm h-32 bg-gray-50 text-gray-900 placeholder-gray-500 font-mono focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none shadow-inner transition-all"
                   placeholder="<script>... Scripts que carregam no final ...</script>"
                   value={bodyScripts}
                   onChange={(e) => setBodyScripts(e.target.value)}
@@ -526,7 +526,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                   placeholder="Ex: quiz.seudominio.com.br"
                   value={customDomain}
                   onChange={(e) => setCustomDomain(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-mono"
+                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-gray-50 text-gray-900 placeholder-gray-500 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-sm font-mono transition-all"
                 />
                 <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
                   <strong>Como configurar:</strong>

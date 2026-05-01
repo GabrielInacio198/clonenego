@@ -67,7 +67,7 @@ export default function NewQuizPage() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://exemplo.com/quiz-emagrecimento"
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
+              className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 bg-gray-50 text-gray-900 placeholder-gray-500 focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
               required
             />
           </div>
