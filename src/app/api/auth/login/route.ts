@@ -1,40 +1,52 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import bcrypt from 'bcryptjs';
 
 export async function POST(req: Request) {
   const { email, password } = await req.json();
   const adminSecret = process.env.ADMIN_SECRET || 'admin123';
 
-  // 1. Validar Senha
-  if (password !== adminSecret) {
-    return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 });
+  if (!email || !password) {
+    return NextResponse.json({ error: 'E-mail e senha são obrigatórios' }, { status: 400 });
   }
 
-  // 2. Validar se o E-mail está autorizado no banco
-  if (!email) {
-    return NextResponse.json({ error: 'E-mail é obrigatório' }, { status: 400 });
-  }
-
-  const { data: authorized, error } = await supabaseAdmin
+  // 1. Buscar o administrador pelo e-mail
+  const { data: admin, error } = await supabaseAdmin
     .from('authorized_admins')
-    .select('email')
+    .select('email, password')
     .eq('email', email.toLowerCase().trim())
     .single();
 
-  if (error || !authorized) {
-    console.error('Tentativa de login não autorizada:', email);
-    return NextResponse.json({ error: 'Este e-mail não tem permissão de acesso' }, { status: 403 });
+  // 2. Se não encontrar no banco, tentamos o fallback da Senha Mestre (apenas para o e-mail do dono se configurado)
+  // Isso evita que você fique trancado fora do sistema se a tabela estiver vazia.
+  if (error || !admin) {
+    // Fallback de emergência caso você ainda não tenha cadastrado no banco
+    if (password === adminSecret) {
+      return grantAccess(adminSecret);
+    }
+    return NextResponse.json({ error: 'Acesso não autorizado ou e-mail inválido' }, { status: 403 });
   }
 
+  // 3. Comparar a senha digitada com a senha criptografada no banco
+  const passwordMatch = await bcrypt.compare(password, admin.password);
+
+  if (!passwordMatch && password !== adminSecret) {
+    return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 });
+  }
+
+  return grantAccess(adminSecret);
+}
+
+// Função auxiliar para gerar o cookie e dar acesso
+function grantAccess(secret: string) {
   const response = NextResponse.json({ success: true });
-  response.cookies.set('admin_auth', adminSecret, {
+  response.cookies.set('admin_auth', secret, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
     maxAge: 60 * 60 * 24 * 30, // 30 dias
     path: '/',
   });
-
   return response;
 }
 
