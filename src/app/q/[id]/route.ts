@@ -81,6 +81,14 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           if (!window.__IS_APPLYING__) applyReplacements(document.body);
         });
         observer.observe(document.documentElement, { childList: true, subtree: true });
+
+        // Escutar mudanças do Editor em tempo real
+        window.addEventListener('message', (e) => {
+          if (e.data && e.data.type === 'SYNC_REPLACEMENTS') {
+             window.QUIZ_REPLACEMENTS = e.data.replacements;
+             applyReplacements(document.body);
+          }
+        });
       </script>
     `;
 
