@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Quiz",
-  description: "Quiz App",
+  title: "SnapFunnel",
+  description: "SnapFunnel — Painel de Controle",
 };
 
 export default function RootLayout({
