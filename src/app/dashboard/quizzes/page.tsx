@@ -109,7 +109,7 @@ export default function QuizzesList() {
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center py-20 text-gray-400">
+    <div className="flex items-center justify-center py-20 text-gray-400 dark:text-slate-500">
       <Loader2 size={32} className="animate-spin mr-3" />
       <span className="text-lg">Carregando seus quizzes...</span>
     </div>
@@ -119,8 +119,8 @@ export default function QuizzesList() {
     <div>
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">Meus Quizzes</h2>
-          <p className="text-gray-500 mt-1">Gerencie seus funis clonados. Cada quiz tem uma URL pública única.</p>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Meus Quizzes</h2>
+          <p className="text-gray-500 dark:text-slate-400 mt-1">Gerencie seus funis clonados. Cada quiz tem uma URL pública única.</p>
         </div>
         <Link
           href="/dashboard/quizzes/new"
@@ -132,17 +132,17 @@ export default function QuizzesList() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-4 bg-red-50 text-red-600 rounded-lg mb-6">
+        <div className="flex items-center gap-2 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg mb-6 border border-transparent dark:border-red-800">
           <AlertCircle size={18} />
           <span>{error}</span>
         </div>
       )}
 
       {quizzes.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-16 flex flex-col items-center justify-center text-gray-500">
-          <Globe size={48} className="mb-4 text-gray-300" />
-          <p className="text-lg font-medium mb-2">Nenhum quiz clonado ainda</p>
-          <p className="text-sm mb-6 text-gray-400">Clique em &quot;Clonar Novo Quiz&quot; para começar</p>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm p-16 flex flex-col items-center justify-center text-gray-500 dark:text-slate-400 transition-colors">
+          <Globe size={48} className="mb-4 text-gray-300 dark:text-slate-600" />
+          <p className="text-lg font-medium mb-2 text-gray-700 dark:text-slate-300">Nenhum quiz clonado ainda</p>
+          <p className="text-sm mb-6 text-gray-400 dark:text-slate-500">Clique em &quot;Clonar Novo Quiz&quot; para começar</p>
           <Link
             href="/dashboard/quizzes/new"
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
@@ -153,11 +153,11 @@ export default function QuizzesList() {
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {quizzes.map((quiz) => (
-            <div key={quiz.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-center gap-5 hover:border-blue-300 transition-all">
+            <div key={quiz.id} className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm p-5 flex items-center gap-5 hover:border-blue-300 dark:hover:border-blue-600 transition-all">
               
               {/* Ícone */}
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
-                <Globe size={22} className="text-blue-600" />
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shrink-0">
+                <Globe size={22} className="text-blue-600 dark:text-blue-400" />
               </div>
 
               {/* Infos */}
@@ -170,48 +170,48 @@ export default function QuizzesList() {
                       value={renameValue}
                       onChange={(e) => setRenameValue(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleRename(quiz.id)}
-                      className="flex-1 px-3 py-1 border border-blue-300 rounded-lg text-sm font-semibold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="flex-1 px-3 py-1 border border-blue-300 dark:border-blue-600 rounded-lg text-sm font-semibold text-gray-900 dark:text-white dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
                     />
-                    <button onClick={() => handleRename(quiz.id)} className="p-1 text-green-600 hover:bg-green-50 rounded"><Check size={18} /></button>
-                    <button onClick={() => setRenamingId(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded text-xs">✕</button>
+                    <button onClick={() => handleRename(quiz.id)} className="p-1 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"><Check size={18} /></button>
+                    <button onClick={() => setRenamingId(null)} className="p-1 text-gray-400 dark:text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-xs">✕</button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 group">
-                    <h3 className="font-semibold text-gray-900 truncate text-base">{quiz.name}</h3>
+                    <h3 className="font-semibold text-gray-900 dark:text-white truncate text-base">{quiz.name}</h3>
                     <button
                       onClick={() => { setRenamingId(quiz.id); setRenameValue(quiz.name); }}
-                      className="p-1 text-gray-300 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-all"
+                      className="p-1 text-gray-300 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-all"
                       title="Renomear"
                     >
                       <Pencil size={14} />
                     </button>
                   </div>
                 )}
-                <p className="text-xs text-gray-400 truncate mt-0.5">Original: {quiz.original_url}</p>
+                <p className="text-xs text-gray-400 dark:text-slate-500 truncate mt-0.5">Original: {quiz.original_url}</p>
                 
                 {/* URL Pública & Acessos */}
                 <div className="flex items-center gap-3 mt-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded">
+                    <span className="text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded border border-transparent dark:border-green-800/30">
                       {quiz.theme_config?.custom_domain ? '🌐 Domínio Próprio' : '🔗 URL do Sistema'}
                     </span>
-                    <code className="text-xs text-gray-500 truncate max-w-sm">
+                    <code className="text-xs text-gray-500 dark:text-slate-400 truncate max-w-sm">
                       {quiz.theme_config?.custom_domain
                         ? `https://${quiz.theme_config.custom_domain}`
                         : `/q/${quiz.id}`}
                     </code>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
-                    <Eye size={14} className="text-blue-500" />
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-slate-300 bg-gray-50 dark:bg-slate-700 px-2 py-0.5 rounded border border-gray-200 dark:border-slate-600">
+                    <Eye size={14} className="text-blue-500 dark:text-blue-400" />
                     {quiz.views || 0} acessos
                   </div>
                 </div>
               </div>
 
               {/* Data */}
-              <div className="text-xs text-gray-400 text-right shrink-0 hidden md:block">
+              <div className="text-xs text-gray-400 dark:text-slate-500 text-right shrink-0 hidden md:block">
                 <p>Criado em</p>
-                <p className="font-medium text-gray-600">{new Date(quiz.created_at).toLocaleDateString('pt-BR')}</p>
+                <p className="font-medium text-gray-600 dark:text-slate-300">{new Date(quiz.created_at).toLocaleDateString('pt-BR')}</p>
               </div>
 
               {/* Ações */}
@@ -219,7 +219,7 @@ export default function QuizzesList() {
                 <button
                   onClick={() => copyUrl(quiz)}
                   title="Copiar URL pública"
-                  className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  className="p-2 text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                 >
                   {copiedId === quiz.id ? <CheckCheck size={18} className="text-green-500" /> : <Copy size={18} />}
                 </button>
@@ -228,7 +228,7 @@ export default function QuizzesList() {
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Abrir quiz"
-                  className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  className="p-2 text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                 >
                   <ExternalLink size={18} />
                 </a>
@@ -236,14 +236,14 @@ export default function QuizzesList() {
                   onClick={() => handleDuplicate(quiz.id)}
                   disabled={duplicatingId === quiz.id}
                   title="Duplicar este quiz"
-                  className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                  className="p-2 text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50"
                 >
                   {duplicatingId === quiz.id ? <Loader2 size={18} className="animate-spin" /> : <CopyPlus size={18} />}
                 </button>
                 <Link
                   href={`/dashboard/quiz/${quiz.id}`}
                   title="Editar"
-                  className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                  className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg transition-colors"
                 >
                   <FileEdit size={16} />
                   Editar
@@ -252,7 +252,7 @@ export default function QuizzesList() {
                   onClick={() => handleDelete(quiz.id, quiz.name)}
                   disabled={deletingId === quiz.id}
                   title="Deletar"
-                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                  className="p-2 text-gray-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
                 >
                   {deletingId === quiz.id ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
                 </button>

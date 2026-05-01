@@ -15,8 +15,8 @@ export default async function DashboardHome() {
     <div>
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">Visão Geral</h2>
-          <p className="text-gray-500 mt-1">Bem-vindo ao seu painel de controle de quizzes clonados.</p>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Visão Geral</h2>
+          <p className="text-gray-500 dark:text-slate-400 mt-1">Bem-vindo ao seu painel de controle de quizzes clonados.</p>
         </div>
         <Link 
           href="/dashboard/quizzes/new" 
@@ -29,17 +29,17 @@ export default async function DashboardHome() {
 
       {/* Cards de métricas */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <h3 className="text-gray-500 text-sm font-medium">Quizzes Ativos</h3>
-          <p className="text-3xl font-bold text-gray-900 mt-2">{quizzesCount || 0}</p>
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm transition-colors">
+          <h3 className="text-gray-500 dark:text-slate-400 text-sm font-medium">Quizzes Ativos</h3>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{quizzesCount || 0}</p>
         </div>
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <h3 className="text-gray-500 text-sm font-medium">Leads Coletados</h3>
-          <p className="text-3xl font-bold text-gray-900 mt-2">{leadsCount || 0}</p>
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm transition-colors">
+          <h3 className="text-gray-500 dark:text-slate-400 text-sm font-medium">Leads Coletados</h3>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{leadsCount || 0}</p>
         </div>
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <h3 className="text-gray-500 text-sm font-medium">Taxa Média de Conversão</h3>
-          <p className="text-3xl font-bold text-gray-900 mt-2">{(quizzesCount && leadsCount) ? Math.round((leadsCount / quizzesCount) * 100) : 0}%</p>
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm transition-colors">
+          <h3 className="text-gray-500 dark:text-slate-400 text-sm font-medium">Taxa Média de Conversão</h3>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{(quizzesCount && leadsCount) ? Math.round((leadsCount / quizzesCount) * 100) : 0}%</p>
         </div>
       </div>
     </div>

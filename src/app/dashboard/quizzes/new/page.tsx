@@ -45,20 +45,20 @@ export default function NewQuizPage() {
 
   return (
     <div className="max-w-2xl mx-auto mt-10">
-      <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
-        <div className="flex items-center space-x-3 text-blue-600 mb-6">
+      <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm transition-colors">
+        <div className="flex items-center space-x-3 text-blue-600 dark:text-blue-400 mb-6">
           <Copy size={28} />
-          <h2 className="text-2xl font-bold text-gray-900">Clonar Novo Quiz</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Clonar Novo Quiz</h2>
         </div>
         
-        <p className="text-gray-600 mb-8">
+        <p className="text-gray-600 dark:text-slate-300 mb-8">
           Cole a URL do quiz que você deseja copiar. Nosso motor inteligente fará a leitura 
           da estrutura, textos e design para você editar e lançar em poucos minutos.
         </p>
 
         <form onSubmit={handleClone} className="space-y-6">
           <div>
-            <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="url" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
               URL do Quiz Alvo
             </label>
             <input
@@ -67,13 +67,13 @@ export default function NewQuizPage() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://exemplo.com/quiz-emagrecimento"
-              className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 bg-gray-50 text-gray-900 placeholder-gray-500 focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
+              className="w-full px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-slate-500 focus:bg-white dark:focus:bg-slate-600 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
               required
             />
           </div>
 
           {error && (
-            <div className="p-4 bg-red-50 text-red-600 rounded-lg text-sm">
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm border border-transparent dark:border-red-800">
               {error}
             </div>
           )}
