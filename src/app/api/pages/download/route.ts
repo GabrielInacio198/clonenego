@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import * as cheerio from 'cheerio';
 import JSZip from 'jszip';
 
 /**
- * Gera e retorna um arquivo ZIP com a página clonada e todos os assets.
- * O HTML é reescrito para usar caminhos relativos (./assets/...)
- * para que o ZIP funcione em qualquer host.
+ * Gera um ZIP da página clonada — faz fetch LIVE da URL original,
+ * converte assets relativos para absolutos, injeta checkout/pixel,
+ * e empacota tudo num ZIP com index.html pronto para hospedar.
  */
+
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
 export async function GET(req: NextRequest) {
   try {
     const pageId = req.nextUrl.searchParams.get('id');
@@ -25,100 +29,115 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Página não encontrada' }, { status: 404 });
     }
 
-    const zip = new JSZip();
-    let html = page.html_content || '';
-    const assets = page.assets || {};
     const config = page.config || {};
-    const assetsFolder = zip.folder('assets')!;
 
-    // 2. Baixar cada asset e adicionar ao ZIP
-    let assetIndex = 0;
-    const urlToLocalPath: Map<string, string> = new Map();
+    // 2. Fetch LIVE do HTML original
+    const response = await fetch(page.original_url, {
+      headers: { 'User-Agent': UA, 'Accept': 'text/html' },
+      signal: AbortSignal.timeout(20000),
+    });
 
-    for (const [originalUrl, storedUrl] of Object.entries(assets)) {
-      try {
-        const res = await fetch(storedUrl as string, { signal: AbortSignal.timeout(10000) });
-        if (!res.ok) continue;
+    if (!response.ok) {
+      return NextResponse.json({ error: `Erro ao acessar o site original: ${response.status}` }, { status: 502 });
+    }
 
-        const buffer = await res.arrayBuffer();
-        
-        // Determinar nome do arquivo
-        let fileName: string;
-        try {
-          const urlObj = new URL(originalUrl);
-          fileName = urlObj.pathname.split('/').pop() || `asset_${assetIndex}`;
-          // Limpar nome
-          fileName = fileName.replace(/[^a-zA-Z0-9._\-]/g, '_');
-        } catch {
-          fileName = `asset_${assetIndex}.bin`;
-        }
+    const rawHtml = new TextDecoder('utf-8').decode(await response.arrayBuffer());
+    const $ = cheerio.load(rawHtml);
+    const baseUrlObj = new URL(page.original_url);
+    const baseUrl = `${baseUrlObj.protocol}//${baseUrlObj.host}`;
 
-        // Evitar nomes duplicados
-        if (urlToLocalPath.has(fileName)) {
-          fileName = `${assetIndex}_${fileName}`;
-        }
-
-        const localPath = `assets/${fileName}`;
-        assetsFolder.file(fileName, buffer);
-        urlToLocalPath.set(storedUrl as string, localPath);
-        
-        assetIndex++;
-      } catch (err) {
-        console.error(`Failed to download asset for ZIP:`, err);
+    // 3. Converter todas as URLs relativas para absolutas
+    $('[src^="/"]').each((_, el) => {
+      const src = $(el).attr('src');
+      if (src && !src.startsWith('//')) $(el).attr('src', baseUrl + src);
+    });
+    $('link[href^="/"]').each((_, el) => {
+      const href = $(el).attr('href');
+      if (href && !href.startsWith('//')) $(el).attr('href', baseUrl + href);
+    });
+    $('[srcset]').each((_, el) => {
+      let srcset = $(el).attr('srcset');
+      if (srcset) {
+        srcset = srcset.split(',').map(s => {
+          let parts = s.trim().split(' ');
+          if (parts[0].startsWith('/') && !parts[0].startsWith('//')) parts[0] = baseUrl + parts[0];
+          return parts.join(' ');
+        }).join(', ');
+        $(el).attr('srcset', srcset);
       }
-    }
-
-    // 3. Reescrever URLs no HTML para caminhos relativos
-    urlToLocalPath.forEach((localPath, storedUrl) => {
-      html = html.split(storedUrl).join(`./${localPath}`);
+    });
+    $('script[src^="/"]').each((_, el) => {
+      const src = $(el).attr('src');
+      if (src && !src.startsWith('//')) $(el).attr('src', baseUrl + src);
     });
 
-    // 4. Injetar pixel/checkout se configurados
-    if (config.pixel_script) {
-      html = html.replace('</head>', `${config.pixel_script}\n</head>`);
-    }
+    // 4. Remover anti-clone
+    $('script').each((_, el) => {
+      const content = $(el).html() || '';
+      const src = $(el).attr('src') || '';
+      if (content.includes('debugger') || content.includes('anti-clone') || src.includes('anti-clone')) {
+        $(el).remove();
+      }
+    });
+
+    // 5. Injetar checkout
     if (config.checkout_url) {
-      // Adicionar script que redireciona botões de compra
-      const checkoutScript = `
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('a[href*="checkout"], a[href*="pay"], button[data-checkout]').forEach(function(el) {
-      el.addEventListener('click', function(e) {
-        e.preventDefault();
-        window.location.href = '${config.checkout_url}';
-      });
-    });
-  });
-</script>`;
-      html = html.replace('</body>', `${checkoutScript}\n</body>`);
+      $('body').append(`
+        <script>
+        (function() {
+          var CHECKOUT = '${config.checkout_url}';
+          var p = new URLSearchParams(window.location.search);
+          var u = {};
+          ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','src','sck'].forEach(function(k) {
+            if (p.get(k)) u[k] = p.get(k);
+          });
+          function go() {
+            var url = new URL(CHECKOUT);
+            Object.keys(u).forEach(function(k) { url.searchParams.set(k, u[k]); });
+            window.location.href = url.toString();
+          }
+          document.addEventListener('click', function(e) {
+            var a = e.target.closest('a');
+            if (a) {
+              var h = (a.getAttribute('href')||'').toLowerCase();
+              if (h.includes('checkout')||h.includes('pay')||h.includes('comprar')||h.includes('hotmart')||h.includes('kiwify')||h.includes('eduzz')||h.includes('monetizze')||h.includes('braip')) {
+                e.preventDefault(); go();
+              }
+            }
+            var b = e.target.closest('button');
+            if (b) {
+              var t = (b.textContent||'').toLowerCase();
+              if (t.includes('comprar')||t.includes('adquirir')||t.includes('garantir')||t.includes('quero')) {
+                e.preventDefault(); go();
+              }
+            }
+          }, true);
+        })();
+        </script>
+      `);
     }
 
-    // 5. Adicionar ao ZIP
-    zip.file('index.html', html);
+    // 6. Injetar pixel/scripts
+    if (config.pixel_script) $('head').append(config.pixel_script);
+    if (config.head_scripts) $('head').append(config.head_scripts);
+    if (config.body_scripts) $('body').append(config.body_scripts);
 
-    // 6. Adicionar README
-    const readme = `# ${page.name}
-Página clonada por SnapFunnel em ${new Date(page.created_at).toLocaleDateString('pt-BR')}
+    // 7. Adicionar <base> para resolver qualquer URL restante
+    if ($('base').length === 0) {
+      $('head').prepend(`<base href="${baseUrl}/">`);
+    }
 
-## Como usar
-1. Extraia o ZIP em uma pasta
-2. Faça upload dos arquivos para seu servidor/hosting
-3. O arquivo principal é o index.html
+    const finalHtml = $.html();
 
-## Editar links de checkout
-Abra o index.html e procure por links de checkout para substituir.
+    // 8. Gerar ZIP
+    const zip = new JSZip();
+    zip.file('index.html', finalHtml);
+    zip.file('README.md', `# ${page.name}\nPágina clonada por SnapFunnel\nOriginal: ${page.original_url}\n\nAbra o index.html no navegador ou faça upload para seu hosting.\nOs assets são carregados diretamente do site original via <base> tag.`);
 
-## Origem
-URL original: ${page.original_url}
-`;
-    zip.file('README.md', readme);
-
-    // 7. Gerar o ZIP
     const zipBuffer = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
 
-    // 8. Retornar como download
-    const safeName = page.name.replace(/[^a-zA-Z0-9_\-]/g, '_').substring(0, 50);
-    
+    const safeName = (page.name || 'pagina').replace(/[^a-zA-Z0-9_\-]/g, '_').substring(0, 50);
+
     return new NextResponse(zipBuffer, {
       headers: {
         'Content-Type': 'application/zip',
