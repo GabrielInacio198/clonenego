@@ -113,7 +113,22 @@ export async function GET(
             if (el.tagName === 'A') {
               const hrefAttr = el.getAttribute('href') || '';
               const href = hrefAttr.toLowerCase();
-              if (hrefAttr.startsWith('#')) return; // Pular âncoras internas
+              
+              // TRATAMENTO DE ÂNCORAS: Impedir que a <base> tag redirecione para fora
+              if (hrefAttr.startsWith('#')) {
+                el.addEventListener('click', (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  try {
+                    const target = document.querySelector(hrefAttr);
+                    if (target) target.scrollIntoView({ behavior: 'smooth' });
+                    else window.location.hash = hrefAttr;
+                  } catch(err) {
+                    console.warn("Erro ao rolar para âncora:", err);
+                  }
+                }, true);
+                return;
+              }
               
               if (gateways.some(g => href.includes(g)) || el.dataset.checkout) {
                 el.addEventListener('click', (e) => {
