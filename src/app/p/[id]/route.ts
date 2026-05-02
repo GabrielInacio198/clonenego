@@ -111,7 +111,10 @@ export async function GET(
           function patch(el) {
             if (!CHECKOUT_URL) return;
             if (el.tagName === 'A') {
-              const href = (el.getAttribute('href') || '').toLowerCase();
+              const hrefAttr = el.getAttribute('href') || '';
+              const href = hrefAttr.toLowerCase();
+              if (hrefAttr.startsWith('#')) return; // Pular âncoras internas
+              
               if (gateways.some(g => href.includes(g)) || el.dataset.checkout) {
                 el.addEventListener('click', (e) => {
                   e.preventDefault(); e.stopPropagation();
@@ -157,7 +160,8 @@ export async function GET(
       if (!val || val.startsWith('data:') || val.startsWith('#') || val.startsWith('javascript:')) return;
 
       // REESCRITA DE CHECKOUT (Física)
-      if (tag === 'A' && checkoutUrl) {
+      // Pulamos links que começam com # (âncoras internas)
+      if (tag === 'A' && checkoutUrl && !val.startsWith('#')) {
         const lowerVal = val.toLowerCase();
         if (gateways.some(g => lowerVal.includes(g)) || $(el).data('checkout')) {
           $(el).attr(attr, checkoutUrl);
