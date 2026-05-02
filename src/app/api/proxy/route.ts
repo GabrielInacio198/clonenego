@@ -94,6 +94,12 @@ async function handleProxy(req: Request) {
                 return match;
             }
             const absolute = url.startsWith('/') ? baseUrl + url : dirUrl + url;
+            
+            // Se for fonte ou ícone, PRECISAMOS proxiar para evitar erro de CORS
+            if (/\.(woff2?|ttf|otf|eot|svg)(\?.*)?$/i.test(url.split('#')[0].split('?')[0])) {
+                return `url("/api/proxy?url=${encodeURIComponent(absolute)}&overrideHost=${overrideHost || ''}")`;
+            }
+            
             return `url("${absolute}")`;
         });
 
