@@ -136,8 +136,9 @@ export async function GET(
         return;
       }
 
-      // Remover atributo crossorigin (causa CORS block com proxy)
+      // Remover atributos que bloqueiam o proxy (CORS e SRI)
       $(el).removeAttr('crossorigin');
+      $(el).removeAttr('integrity');
 
       // Scripts relativos do mesmo domínio → passar pelo proxy
       if (src.startsWith('/') && !src.startsWith('//')) {
@@ -157,8 +158,9 @@ export async function GET(
     $('link[rel="stylesheet"]').each((_, el) => {
       const href = $(el).attr('href') || '';
 
-      // Remover crossorigin
+      // Remover atributos bloqueantes
       $(el).removeAttr('crossorigin');
+      $(el).removeAttr('integrity');
 
       // CSS relativo → proxy
       if (href.startsWith('/') && !href.startsWith('//')) {
@@ -182,6 +184,7 @@ export async function GET(
         $(el).attr('src', baseUrl + src);
       }
       $(el).removeAttr('crossorigin');
+      $(el).removeAttr('integrity');
     });
 
     // Srcset
@@ -212,6 +215,7 @@ export async function GET(
         }
       }
       $(el).removeAttr('crossorigin');
+      $(el).removeAttr('integrity');
     });
 
     // Fix background-image inline styles com URLs relativas
