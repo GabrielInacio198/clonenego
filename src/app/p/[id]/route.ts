@@ -74,12 +74,24 @@ export async function GET(
       <script id="page-proxy-engine">
         console.log("SnapFunnel Page Proxy Engine Ativo");
         
-        // HACK 1: Enganar verificações de domínio
-        try { window.history.replaceState(null, '', '/'); } catch(e) {}
+        // HACK 1: Enganar verificações de domínio (mais agressivo)
+        (function() {
+          const targetHost = '${targetHost}';
+          const targetOrigin = '${baseUrl}';
+          
+          Object.defineProperty(window.location, 'hostname', { get: () => targetHost, configurable: true });
+          Object.defineProperty(window.location, 'host', { get: () => targetHost, configurable: true });
+          Object.defineProperty(window.location, 'origin', { get: () => targetOrigin, configurable: true });
+          
+          // Alguns scripts checam document.domain
+          try { document.domain = targetHost; } catch(e) {}
+          
+          // History spoofing
+          try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch(e) {}
+        })();
 
         const proxyUrl = '/api/proxy?url=';
         const targetBaseUrl = '${baseUrl}';
-        const targetHost = '${targetHost}';
 
         // HACK 2: Proxy de Fetch
         const _origFetch = window.fetch;
@@ -114,10 +126,8 @@ export async function GET(
           }
           return _origOpen.call(this, method, url, async, user, password);
         };
-
-        // HACK 4: Proxy de dynamic import() para módulos ES
-        // Intercepta import() para que módulos dinâmicos também passem pelo proxy
       </script>
+      <base href="${baseUrl}/">
     `;
     $('head').prepend(proxyScript);
 
@@ -140,14 +150,14 @@ export async function GET(
       $(el).removeAttr('crossorigin');
       $(el).removeAttr('integrity');
 
-      // Scripts relativos do mesmo domínio → passar pelo proxy
-      if (src.startsWith('/') && !src.startsWith('//')) {
-        const fullUrl = baseUrl + src;
+      // 1. Scripts relativos ou absolutos do mesmo domínio → passar pelo proxy
+      const isRelative = src.startsWith('/') && !src.startsWith('//');
+      const isDomainRelative = !src.startsWith('http') && !src.startsWith('//') && !src.startsWith('/');
+      const isSameDomain = src.startsWith(baseUrl);
+
+      if (isRelative || isDomainRelative || isSameDomain) {
+        const fullUrl = isRelative ? baseUrl + src : (isDomainRelative ? baseUrl + '/' + src : src);
         $(el).attr('src', `/api/proxy?url=${encodeURIComponent(fullUrl)}&overrideHost=${targetHost}`);
-      }
-      // Scripts absolutos do mesmo domínio
-      else if (src.startsWith(baseUrl)) {
-        $(el).attr('src', `/api/proxy?url=${encodeURIComponent(src)}&overrideHost=${targetHost}`);
       }
     });
 
@@ -179,9 +189,10 @@ export async function GET(
 
     // Imagens e mídias: converter relativo → absoluto
     $('img[src], source[src], video[src], audio[src]').each((_, el) => {
-      const src = $(el).attr('src');
-      if (src && src.startsWith('/') && !src.startsWith('//')) {
-        $(el).attr('src', baseUrl + src);
+      const src = $(el).attr('src') || '';
+      if (!src.startsWith('http') && !src.startsWith('//') && !src.startsWith('data:')) {
+        const fullUrl = src.startsWith('/') ? baseUrl + src : baseUrl + '/' + src;
+        $(el).attr('src', fullUrl);
       }
       $(el).removeAttr('crossorigin');
       $(el).removeAttr('integrity');
