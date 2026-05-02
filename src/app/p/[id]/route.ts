@@ -157,7 +157,13 @@ export async function GET(
       const attr = $(el).attr('src') ? 'src' : 'href';
       let val = $(el).attr(attr) || '';
 
-      if (!val || val.startsWith('data:') || val.startsWith('#') || val.startsWith('javascript:')) return;
+      if (!val || val.startsWith('data:') || val.startsWith('javascript:')) return;
+
+      // REESCRITA DE ÂNCORAS (Para evitar redirecionamento por causa da <base> tag)
+      if (val.startsWith('#')) {
+        $(el).attr(attr, `javascript:document.querySelector('${val}')?.scrollIntoView({behavior:'smooth'})`);
+        return;
+      }
 
       // REESCRITA DE CHECKOUT (Física)
       // Pulamos links que começam com # (âncoras internas)
