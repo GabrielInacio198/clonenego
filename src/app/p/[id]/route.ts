@@ -30,10 +30,16 @@ export async function GET(
     const originalUrl = page.original_url;
     const checkoutUrl = config.checkout_url || '';
 
-    // 2. Fetch LIVE
+    // 2. Fetch LIVE do HTML original com headers reais de navegador
     const response = await fetch(originalUrl, {
-      headers: { 'User-Agent': UA, 'Accept': 'text/html' },
-      next: { revalidate: 60 },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      },
+      next: { revalidate: 0 }, // Sem cache durante debug para garantir que pegamos o HTML real
     });
 
     if (!response.ok) {
@@ -143,21 +149,26 @@ export async function GET(
       const attr = $(el).attr('src') ? 'src' : ($(el).attr('href') ? 'href' : 'srcset');
       let val = $(el).attr(attr) || '';
 
-      if (val.startsWith('data:') || val.startsWith('#') || val.startsWith('javascript:')) return;
+      if (!val || val.startsWith('data:') || val.startsWith('#') || val.startsWith('javascript:')) return;
 
-      // Converter relativo → absoluto
+      // 1. Determinar se a URL já é absoluta ou precisa de base
+      let absoluteVal = val;
       if (!val.startsWith('http') && !val.startsWith('//')) {
-        val = val.startsWith('/') ? baseUrl + val : baseUrl + '/' + val;
+        // Se começar com /, é relativo à raiz. Se não, é relativo ao diretório atual.
+        absoluteVal = val.startsWith('/') ? baseUrl + val : baseUrl + '/' + val;
+      } else if (val.startsWith('//')) {
+        absoluteVal = 'https:' + val;
       }
 
-      // Proxiar Scripts e Styles para evitar CORS/Integrity
+      // 2. Proxiar Scripts e Styles para evitar CORS/Integrity
       if (tag === 'SCRIPT' || (tag === 'LINK' && $(el).attr('rel') === 'stylesheet')) {
-        const proxied = `/api/proxy?url=${encodeURIComponent(val)}&overrideHost=${targetHost}`;
+        const proxied = `/api/proxy?url=${encodeURIComponent(absoluteVal)}&overrideHost=${targetHost}`;
         $(el).attr(attr, proxied);
         $(el).removeAttr('integrity');
         $(el).removeAttr('crossorigin');
       } else {
-        $(el).attr(attr, val);
+        // Para imagens e outros assets, usamos a URL absoluta direta do site original
+        $(el).attr(attr, absoluteVal);
       }
     });
 
