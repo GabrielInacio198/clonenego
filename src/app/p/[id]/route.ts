@@ -78,16 +78,30 @@ export async function GET(
             Object.defineProperty(window.location, 'origin', { get: () => TARGET_ORIGIN, configurable: true });
           } catch(e) {}
 
-          // INTERCEPTOR DE CHECKOUT
+          // INTERCEPTOR DE CHECKOUT E ÂNCORAS
           const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper'];
           
           function patch(el) {
-            if (!CHECKOUT_URL) return;
             if (el.tagName === 'A') {
-              const href = (el.getAttribute('href') || '').toLowerCase();
-              if (href.startsWith('#')) return; // Ignorar âncoras
-              if (gateways.some(g => href.includes(g)) || el.dataset.checkout) {
-                el.href = CHECKOUT_URL; // Troca física no navegador
+              const hrefAttr = el.getAttribute('href') || '';
+              const href = hrefAttr.toLowerCase();
+
+              // TRATAMENTO DE ÂNCORAS (Impedir saída do domínio)
+              if (hrefAttr.startsWith('#')) {
+                el.addEventListener('click', (e) => {
+                  e.preventDefault(); e.stopPropagation();
+                  try {
+                    const target = document.querySelector(hrefAttr);
+                    if (target) target.scrollIntoView({ behavior: 'smooth' });
+                    else window.location.hash = hrefAttr;
+                  } catch(err) {}
+                }, true);
+                return;
+              }
+
+              // CHECKOUT
+              if (CHECKOUT_URL && (gateways.some(g => href.includes(g)) || el.dataset.checkout)) {
+                el.href = CHECKOUT_URL;
                 el.addEventListener('click', (e) => {
                   e.preventDefault(); e.stopPropagation();
                   const u = new URL(CHECKOUT_URL);
@@ -99,7 +113,7 @@ export async function GET(
             }
             if (el.tagName === 'BUTTON') {
               const text = (el.textContent || '').toLowerCase();
-              if (['comprar','adquirir','garantir','quero','assinar','buy'].some(t => text.includes(t))) {
+              if (CHECKOUT_URL && ['comprar','adquirir','garantir','quero','assinar','buy'].some(t => text.includes(t))) {
                 el.addEventListener('click', (e) => {
                   e.preventDefault(); e.stopPropagation();
                   window.location.href = CHECKOUT_URL;
@@ -137,20 +151,25 @@ export async function GET(
     $('head').prepend(engineScript);
 
     // ═══════════════════════════════════════════════
-    // 3. REESCRITA MÍNIMA DE CHECKOUT (No HTML)
+    // 3. REESCRITA DE ÂNCORAS E CHECKOUT (No HTML)
     // ═══════════════════════════════════════════════
-    if (checkoutUrl) {
-      const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper'];
-      $('a').each((_, el) => {
-        const href = ($(el).attr('href') || '').toLowerCase();
-        if (!href.startsWith('#') && gateways.some(g => href.includes(g))) {
-          $(el).attr('href', checkoutUrl);
-        }
-      });
-    }
+    const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper'];
+    
+    $('a').each((_, el) => {
+      const href = $(el).attr('href') || '';
+      
+      // Corrigir Âncoras Fisicamente
+      if (href.startsWith('#')) {
+        $(el).attr('href', `javascript:document.querySelector('${href}')?.scrollIntoView({behavior:'smooth'})`);
+      } 
+      // Corrigir Checkout Fisicamente
+      else if (checkoutUrl && gateways.some(g => href.toLowerCase().includes(g))) {
+        $(el).attr('href', checkoutUrl);
+      }
+    });
 
-    // Injetar Pixels
-    if (config.pixel_script) $('head').append(config.pixel_script);
+    // Injetar Pixels (Garantir que não quebrem o layout)
+    if (config.pixel_script) $('head').append(`<div id="pixel-container" style="display:none">${config.pixel_script}</div>`);
     if (config.head_scripts) $('head').append(config.head_scripts);
     if (config.body_scripts) $('body').append(config.body_scripts);
 
