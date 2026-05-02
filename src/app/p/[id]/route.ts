@@ -190,11 +190,10 @@ export async function GET(
         }
       }
 
-      // SÓ proxiamos Scripts e Styles que são do MESMO domínio original (para evitar erro de CORS)
-      const isInternal = val.startsWith('/') || val.includes(targetHost);
+      // SÓ proxiamos Scripts e Styles (todos, para garantir que o CSS rewrite funcione)
       const isScriptOrStyle = tag === 'SCRIPT' || (tag === 'LINK' && $(el).attr('rel') === 'stylesheet');
 
-      if (isInternal && isScriptOrStyle) {
+      if (isScriptOrStyle) {
         const absoluteVal = val.startsWith('/') ? baseUrl + val : (val.startsWith('http') ? val : baseUrl + '/' + val);
         const proxied = `${currentOrigin}/api/proxy?url=${encodeURIComponent(absoluteVal)}&overrideHost=${targetHost}`;
         $(el).attr(attr, proxied);

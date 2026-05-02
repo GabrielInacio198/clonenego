@@ -79,6 +79,30 @@ async function handleProxy(req: Request) {
         });
     }
 
+    // Se for CSS, reescrevemos as URLs internas (fontes, imagens) para serem absolutas
+    if (contentType.includes('css') || targetUrl.endsWith('.css')) {
+        const decoder = new TextDecoder('utf-8');
+        let cssContent = decoder.decode(responseBody);
+        
+        const targetUrlObj = new URL(targetUrl);
+        const baseUrl = targetUrlObj.origin;
+        const dirUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
+
+        // Regex para encontrar url(...) - lidando com aspas opcionais e espaços
+        cssContent = cssContent.replace(/url\s*\(\s*['"]?([^'")]*)['"]?\s*\)/gi, (match, url) => {
+            if (url.startsWith('data:') || url.startsWith('http') || url.startsWith('//')) {
+                return match;
+            }
+            const absolute = url.startsWith('/') ? baseUrl + url : dirUrl + url;
+            return `url("${absolute}")`;
+        });
+
+        return new NextResponse(cssContent, {
+            status: response.status,
+            headers: responseHeaders
+        });
+    }
+
     return new NextResponse(responseBody, {
       status: response.status,
       headers: responseHeaders
