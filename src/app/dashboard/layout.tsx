@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { LayoutDashboard, Copy, LogOut, Settings } from 'lucide-react';
+import { LayoutDashboard, Copy, LogOut, Settings, FileText } from 'lucide-react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ThemeProvider } from '@/lib/ThemeProvider';
@@ -46,6 +46,15 @@ export default function DashboardLayout({
                 >
                   <Copy size={18} />
                   <span className="font-medium">Meus Quizzes</span>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/dashboard/pages"
+                  className="flex items-center space-x-3 text-slate-300 hover:text-white p-3 rounded-xl hover:bg-slate-800 transition-all"
+                >
+                  <FileText size={18} />
+                  <span className="font-medium">Páginas</span>
                 </Link>
               </li>
               <li>
