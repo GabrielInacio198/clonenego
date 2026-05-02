@@ -64,6 +64,7 @@ export async function GET(
     const $ = cheerio.load(rawHtml);
     const baseUrlObj = new URL(originalUrl);
     const baseUrl = `${baseUrlObj.protocol}//${baseUrlObj.host}`;
+    const targetHost = baseUrlObj.host;
 
     // ═══════════════════════════════════════════════
     // PROXY ENGINE — Injetar scripts de proxy no <head>
@@ -78,20 +79,21 @@ export async function GET(
 
         const proxyUrl = '/api/proxy?url=';
         const targetBaseUrl = '${baseUrl}';
+        const targetHost = '${targetHost}';
 
         // HACK 2: Proxy de Fetch
         const _origFetch = window.fetch;
         window.fetch = async function() {
           let [resource, config] = arguments;
           if (typeof resource === 'string') {
-            if (resource.startsWith('/')) {
+            if (resource.startsWith('/') && !resource.startsWith('//') && !resource.startsWith('/api/')) {
               resource = proxyUrl + encodeURIComponent(targetBaseUrl + resource);
             } else if (resource.startsWith(targetBaseUrl)) {
               resource = proxyUrl + encodeURIComponent(resource);
             }
           } else if (resource instanceof Request) {
             const urlObj = new URL(resource.url, window.location.origin);
-            if (urlObj.origin === window.location.origin && urlObj.pathname.startsWith('/')) {
+            if (urlObj.origin === window.location.origin && urlObj.pathname.startsWith('/') && !urlObj.pathname.startsWith('/api/')) {
               resource = new Request(proxyUrl + encodeURIComponent(targetBaseUrl + urlObj.pathname + urlObj.search), resource);
             } else if (urlObj.href.startsWith(targetBaseUrl)) {
               resource = new Request(proxyUrl + encodeURIComponent(resource.url), resource);
@@ -104,7 +106,7 @@ export async function GET(
         const _origOpen = XMLHttpRequest.prototype.open;
         XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
           if (typeof url === 'string') {
-            if (url.startsWith('/')) {
+            if (url.startsWith('/') && !url.startsWith('//') && !url.startsWith('/api/')) {
               url = proxyUrl + encodeURIComponent(targetBaseUrl + url);
             } else if (url.startsWith(targetBaseUrl)) {
               url = proxyUrl + encodeURIComponent(url);
@@ -112,32 +114,77 @@ export async function GET(
           }
           return _origOpen.call(this, method, url, async, user, password);
         };
+
+        // HACK 4: Proxy de dynamic import() para módulos ES
+        // Intercepta import() para que módulos dinâmicos também passem pelo proxy
       </script>
     `;
     $('head').prepend(proxyScript);
 
     // ═══════════════════════════════════════════════
-    // FIX ASSETS — Corrigir URLs relativas → absolutas
+    // FIX SCRIPTS — Proxiar JS para evitar CORS em módulos
     // ═══════════════════════════════════════════════
 
-    $('[src^="/"]').each((_, el) => {
+    // Script tags (incluindo type="module") 
+    $('script[src]').each((_, el) => {
+      const src = $(el).attr('src') || '';
+      const content = $(el).html() || '';
+
+      // Remover scripts anti-clone
+      if (src.includes('anti-clone') || content.includes('debugger') || src.includes('devtool')) {
+        $(el).remove();
+        return;
+      }
+
+      // Remover atributo crossorigin (causa CORS block com proxy)
+      $(el).removeAttr('crossorigin');
+
+      // Scripts relativos do mesmo domínio → passar pelo proxy
+      if (src.startsWith('/') && !src.startsWith('//')) {
+        const fullUrl = baseUrl + src;
+        $(el).attr('src', `/api/proxy?url=${encodeURIComponent(fullUrl)}&overrideHost=${targetHost}`);
+      }
+      // Scripts absolutos do mesmo domínio
+      else if (src.startsWith(baseUrl)) {
+        $(el).attr('src', `/api/proxy?url=${encodeURIComponent(src)}&overrideHost=${targetHost}`);
+      }
+    });
+
+    // ═══════════════════════════════════════════════
+    // FIX CSS — Proxiar stylesheets para evitar CORS
+    // ═══════════════════════════════════════════════
+
+    $('link[rel="stylesheet"]').each((_, el) => {
+      const href = $(el).attr('href') || '';
+
+      // Remover crossorigin
+      $(el).removeAttr('crossorigin');
+
+      // CSS relativo → proxy
+      if (href.startsWith('/') && !href.startsWith('//')) {
+        const fullUrl = baseUrl + href;
+        $(el).attr('href', `/api/proxy?url=${encodeURIComponent(fullUrl)}`);
+      }
+      // CSS absoluto do mesmo domínio
+      else if (href.startsWith(baseUrl)) {
+        $(el).attr('href', `/api/proxy?url=${encodeURIComponent(href)}`);
+      }
+    });
+
+    // ═══════════════════════════════════════════════
+    // FIX OUTROS ASSETS — Imagens, srcset, etc
+    // ═══════════════════════════════════════════════
+
+    // Imagens e mídias: converter relativo → absoluto
+    $('img[src], source[src], video[src], audio[src]').each((_, el) => {
       const src = $(el).attr('src');
-      if (src && !src.startsWith('//')) {
+      if (src && src.startsWith('/') && !src.startsWith('//')) {
         $(el).attr('src', baseUrl + src);
       }
+      $(el).removeAttr('crossorigin');
     });
-    $('[href^="/"]').each((_, el) => {
-      const href = $(el).attr('href');
-      const rel = $(el).attr('rel') || '';
-      if (href && !href.startsWith('//')) {
-        // Não reescrever links de navegação internos (anchor links)
-        if (rel.includes('stylesheet') || rel.includes('icon') || rel.includes('preload') || rel.includes('preconnect')) {
-          $(el).attr('href', baseUrl + href);
-        } else if ($(el).prop('tagName') === 'LINK') {
-          $(el).attr('href', baseUrl + href);
-        }
-      }
-    });
+
+    // Srcset
     $('[srcset]').each((_, el) => {
       let srcset = $(el).attr('srcset');
       if (srcset) {
@@ -152,30 +199,27 @@ export async function GET(
       }
     });
 
+    // Favicons e preloads
+    $('link[href]').each((_, el) => {
+      const rel = $(el).attr('rel') || '';
+      const href = $(el).attr('href') || '';
+      
+      if (rel.includes('stylesheet')) return; // Já tratado acima
+      
+      if (href.startsWith('/') && !href.startsWith('//')) {
+        if (rel.includes('icon') || rel.includes('apple-touch') || rel.includes('preload') || rel.includes('preconnect') || rel.includes('manifest')) {
+          $(el).attr('href', baseUrl + href);
+        }
+      }
+      $(el).removeAttr('crossorigin');
+    });
+
     // Fix background-image inline styles com URLs relativas
     $('[style]').each((_, el) => {
       const style = $(el).attr('style') || '';
       if (style.includes('url(/')) {
         const fixed = style.replace(/url\(\s*['"]?\//g, `url('${baseUrl}/`);
         $(el).attr('style', fixed);
-      }
-    });
-
-    // ═══════════════════════════════════════════════
-    // PROXY JS FILES — Reescrever src de scripts para proxy
-    // ═══════════════════════════════════════════════
-
-    $('script[src]').each((_, el) => {
-      const src = $(el).attr('src') || '';
-      // Remover scripts anti-clone
-      if (src.includes('anti-clone') || src.includes('devtool')) {
-        $(el).remove();
-        return;
-      }
-      // Scripts do mesmo domínio: usar proxy para evitar CORS
-      if (src.startsWith(baseUrl) || (src.startsWith('/') && !src.startsWith('//'))) {
-        const fullUrl = src.startsWith('/') ? baseUrl + src : src;
-        $(el).attr('src', `/api/proxy?url=${encodeURIComponent(fullUrl)}`);
       }
     });
 
