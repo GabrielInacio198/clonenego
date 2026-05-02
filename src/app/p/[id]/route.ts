@@ -144,8 +144,10 @@ export async function GET(
     $('head').prepend(engineScript);
 
     // ═══════════════════════════════════════════════
-    // 3. PROCESSAMENTO DE ASSETS (O Segredo da Estabilidade)
+    // 3. PROCESSAMENTO DE ASSETS E CHECKOUT
     // ═══════════════════════════════════════════════
+
+    const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper'];
 
     $('[src], [href]').each((_, el) => {
       const tag = $(el).prop('tagName');
@@ -154,21 +156,26 @@ export async function GET(
 
       if (!val || val.startsWith('data:') || val.startsWith('#') || val.startsWith('javascript:')) return;
 
+      // REESCRITA DE CHECKOUT (Física)
+      if (tag === 'A' && checkoutUrl) {
+        const lowerVal = val.toLowerCase();
+        if (gateways.some(g => lowerVal.includes(g)) || $(el).data('checkout')) {
+          $(el).attr(attr, checkoutUrl);
+          return; // Não processar como asset se for checkout
+        }
+      }
+
       // SÓ proxiamos Scripts e Styles que são do MESMO domínio original (para evitar erro de CORS)
-      // Assets de CDNs externos (Google, Tailwind, Cloudflare) deixamos como estão (a <base> tag cuida se forem relativos)
       const isInternal = val.startsWith('/') || val.includes(targetHost);
       const isScriptOrStyle = tag === 'SCRIPT' || (tag === 'LINK' && $(el).attr('rel') === 'stylesheet');
 
       if (isInternal && isScriptOrStyle) {
-        // Tornar absoluto primeiro
         const absoluteVal = val.startsWith('/') ? baseUrl + val : (val.startsWith('http') ? val : baseUrl + '/' + val);
-        // Proxiar usando URL absoluta do SnapFunnel
         const proxied = `${currentOrigin}/api/proxy?url=${encodeURIComponent(absoluteVal)}&overrideHost=${targetHost}`;
         $(el).attr(attr, proxied);
         $(el).removeAttr('integrity');
         $(el).removeAttr('crossorigin');
       }
-      // Imagens e outros assets NÃO mexemos — a tag <base> resolve tudo perfeitamente e mais rápido.
     });
 
     // Injetar Pixels e Scripts Customizados
