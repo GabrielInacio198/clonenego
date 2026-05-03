@@ -44,35 +44,49 @@ function LoginContent() {
     }
   };
 
-  const playClickSound = () => {
+  const playClickSound = (isOn: boolean) => {
     try {
       const AudioContext = (window.AudioContext || (window as any).webkitAudioContext);
       const audioCtx = new AudioContext();
-      
-      // Gerador de ruído branco para um "click" mecânico real
+      const now = audioCtx.currentTime;
+
+      // Componente de Ruído (O estalido mecânico)
       const bufferSize = audioCtx.sampleRate * 0.05;
       const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
       const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
-      }
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
 
       const noise = audioCtx.createBufferSource();
       noise.buffer = buffer;
+      const noiseFilter = audioCtx.createBiquadFilter();
+      noiseFilter.type = 'highpass';
+      noiseFilter.frequency.setValueAtTime(isOn ? 3000 : 2500, now);
+      
+      const noiseGain = audioCtx.createGain();
+      noiseGain.gain.setValueAtTime(0.03, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.03);
 
-      const filter = audioCtx.createBiquadFilter();
-      filter.type = 'highpass';
-      filter.frequency.value = 2000;
+      // Componente Tonal (O impacto metálico)
+      const oscillator = audioCtx.createOscillator();
+      const oscGain = audioCtx.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(isOn ? 1800 : 1400, now);
+      oscillator.frequency.exponentialRampToValueAtTime(isOn ? 1000 : 800, now + 0.04);
+      
+      oscGain.gain.setValueAtTime(0.02, now);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
 
-      const gain = audioCtx.createGain();
-      gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(audioCtx.destination);
 
-      noise.connect(filter);
-      filter.connect(gain);
-      gain.connect(audioCtx.destination);
+      oscillator.connect(oscGain);
+      oscGain.connect(audioCtx.destination);
 
-      noise.start();
+      noise.start(now);
+      oscillator.start(now);
+      oscillator.stop(now + 0.05);
+      
       if (audioCtx.state === 'suspended') audioCtx.resume();
     } catch (e) {}
   };
@@ -80,7 +94,7 @@ function LoginContent() {
   const toggleLamp = () => {
     const newState = !isLampOn;
     setIsLampOn(newState);
-    playClickSound();
+    playClickSound(newState);
   };
 
   const handlePullStart = () => setIsPulling(true);
@@ -93,7 +107,7 @@ function LoginContent() {
 
   return (
     <div 
-      className="min-h-screen transition-all duration-1000 flex flex-col items-center justify-center p-4 overflow-hidden relative"
+      className="min-h-screen transition-all duration-[1500ms] flex flex-col items-center justify-center p-4 overflow-hidden relative"
       style={{
         background: isLampOn 
           ? 'radial-gradient(circle at 50% 35%, #1e222b 0%, #050608 100%)' 
@@ -152,7 +166,7 @@ function LoginContent() {
               className="transition-all duration-500"
             />
             
-            {/* Bocal interno para a corda (Esconde a conexão) */}
+            {/* Bocal interno para a corda */}
             <rect x="116" y="95" width="8" height="10" rx="1" fill={isLampOn ? "#92400e" : "#020617"} />
 
             {/* Cordinha Interativa (Física de Alta Precisão) */}
@@ -161,11 +175,11 @@ function LoginContent() {
               onPointerUp={handlePullEnd}
               onPointerLeave={() => isPulling && setIsPulling(false)}
               animate={{ 
-                rotate: isPulling ? [0, 1, -1, 0] : [0, -0.5, 0.5, -0.2, 0.2, 0],
+                rotate: isPulling ? [0, 1, -1, 0] : [0, -0.4, 0.4, -0.1, 0.1, 0],
               }}
               transition={{
                 rotate: { 
-                  duration: isPulling ? 0.2 : 6, 
+                  duration: isPulling ? 0.2 : 8, 
                   repeat: isPulling ? 0 : Infinity, 
                   ease: "easeInOut" 
                 }
@@ -179,12 +193,12 @@ function LoginContent() {
                 y1="95" 
                 x2="120" 
                 animate={{ 
-                  y2: isPulling ? 190 : 155 
+                  y2: isPulling ? 185 : 155 
                 }}
                 transition={{ 
                   type: "spring", 
-                  stiffness: 700, 
-                  damping: 35 
+                  stiffness: 300, 
+                  damping: 25 
                 }}
                 stroke={isLampOn ? "#fbbf24" : "#475569"} 
                 strokeWidth="1.5" 
@@ -195,12 +209,12 @@ function LoginContent() {
               <motion.circle 
                 cx="120" 
                 animate={{ 
-                  cy: isPulling ? 195 : 160 
+                  cy: isPulling ? 190 : 160 
                 }}
                 transition={{ 
                   type: "spring", 
-                  stiffness: 700, 
-                  damping: 35 
+                  stiffness: 300, 
+                  damping: 25 
                 }}
                 r="7" 
                 fill={isLampOn ? "#fbbf24" : "#64748b"} 
