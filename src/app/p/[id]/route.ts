@@ -56,25 +56,39 @@ export async function GET(
     const currentOrigin = req.nextUrl.origin;
 
     // ═══════════════════════════════════════════════
+    // 0. TRACKING (Assíncrono)
+    // ═══════════════════════════════════════════════
+    supabaseAdmin.from('cloned_page_views').insert([{ page_id: id }]).then(({error}) => {
+      if (error) console.error('Erro ao registrar view da página:', error);
+    });
+
+    // ═══════════════════════════════════════════════
     // 1. BASE TAG (Estabilidade Visual)
     // ═══════════════════════════════════════════════
     $('base').remove();
     $('head').prepend(`<base href="${originalUrl}">`);
 
     // ═══════════════════════════════════════════════
-    // 2. ENGINE SNAPFUNNEL v7.0 (SPA Compatibility)
+    // 2. ENGINE SNAPFUNNEL v7.2 (Ultra-Aggressive Proxy)
     // ═══════════════════════════════════════════════
     const engineScript = `
       <script id="snapfunnel-engine-v7">
         (function() {
-          console.log("SnapFunnel Engine v7.0 - God Mode Active");
+          console.log("SnapFunnel Engine v7.2 - God Mode Active");
           const CHECKOUT_URL = '${checkoutUrl}';
           const TARGET_HOST = '${targetHost}';
           const TARGET_ORIGIN = '${baseUrl}';
           const TARGET_PATH = '${targetPath}';
           const PROXY_URL = '${currentOrigin}/api/proxy?url=';
 
-          // 1. DEEP SPOOFING (Enganar Scripts de SPA)
+          // 1. MATADOR DE SERVICE WORKERS
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+              for (let registration of registrations) { registration.unregister(); }
+            });
+          }
+
+          // 2. DEEP SPOOFING
           try {
             const spoof = (obj, prop, value) => {
               try { Object.defineProperty(obj, prop, { get: () => value, configurable: true }); } catch(e) {}
@@ -82,70 +96,92 @@ export async function GET(
             spoof(window.location, 'hostname', TARGET_HOST);
             spoof(window.location, 'host', TARGET_HOST);
             spoof(window.location, 'origin', TARGET_ORIGIN);
-            // pathname é crítico para roteadores React/Vite
             spoof(window.location, 'pathname', TARGET_PATH);
           } catch(e) {}
 
-          // 2. INTERCEPTOR DE CHECKOUT E ÂNCORAS
+          // 3. INTERCEPTOR DE CHECKOUT (God Mode Style)
           const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper'];
-          
-          function patch(el) {
-            if (el.tagName === 'A') {
-              const hrefAttr = el.getAttribute('href') || '';
-              const href = hrefAttr.toLowerCase();
+          const checkoutKeywords = ['comprar', 'receber agora', 'obter acesso', 'quero o plano', 'garantir', 'receber meu', 'checkout'];
 
-              if (hrefAttr.startsWith('#')) {
-                el.addEventListener('click', (e) => {
+          function prepareCheckoutUrl(url) {
+            if (!url) return null;
+            try {
+              const u = new URL(url);
+              const p = new URLSearchParams(window.location.search);
+              ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','src','sck'].forEach(k => { 
+                if (p.get(k)) u.searchParams.set(k, p.get(k)); 
+              });
+              return u.toString();
+            } catch(e) { return url; }
+          }
+
+          function patch(el) {
+            if (!el || el.nodeType !== 1) return;
+
+            if (el.tagName === 'A') {
+              const href = (el.getAttribute('href') || '').toLowerCase();
+              if (href.startsWith('#')) {
+                el.onclick = (e) => {
                   e.preventDefault(); e.stopPropagation();
                   try {
-                    const target = document.querySelector(hrefAttr);
+                    const target = document.querySelector(el.getAttribute('href'));
                     if (target) target.scrollIntoView({ behavior: 'smooth' });
-                    else window.location.hash = hrefAttr;
                   } catch(err) {}
-                }, true);
+                };
                 return;
               }
 
               if (CHECKOUT_URL && (gateways.some(g => href.includes(g)) || el.dataset.checkout)) {
-                el.href = CHECKOUT_URL;
-                el.addEventListener('click', (e) => {
+                el.href = prepareCheckoutUrl(CHECKOUT_URL);
+                el.onclick = (e) => {
                   e.preventDefault(); e.stopPropagation();
-                  const u = new URL(CHECKOUT_URL);
-                  const p = new URLSearchParams(window.location.search);
-                  ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','src','sck'].forEach(k => { if (p.get(k)) u.searchParams.set(k, p.get(k)); });
-                  window.location.href = u.toString();
-                }, true);
+                  window.location.href = el.href;
+                };
               }
             }
-            if (el.tagName === 'BUTTON') {
+            
+            if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button') {
               const text = (el.textContent || '').toLowerCase();
-              if (CHECKOUT_URL && ['comprar','adquirir','garantir','quero','assinar','buy'].some(t => text.includes(t))) {
-                el.addEventListener('click', (e) => {
+              if (CHECKOUT_URL && checkoutKeywords.some(k => text.includes(k))) {
+                el.onclick = (e) => {
                   e.preventDefault(); e.stopPropagation();
-                  window.location.href = CHECKOUT_URL;
-                }, true);
+                  window.location.href = prepareCheckoutUrl(CHECKOUT_URL);
+                };
               }
             }
           }
 
-          const obs = new MutationObserver(m => m.forEach(r => r.addedNodes.forEach(n => {
-            if (n.nodeType === 1) { 
-              patch(n); 
-              n.querySelectorAll('a, button').forEach(patch);
-              // Interceptar injeção de scripts dinâmicos (comum em Vite)
-              if (n.tagName === 'SCRIPT' && n.src && !n.src.includes('/api/proxy')) {
-                const originalSrc = n.src;
-                n.src = PROXY_URL + encodeURIComponent(originalSrc) + '&overrideHost=' + TARGET_HOST;
+          // MutationObserver Robusto (SPA & Lovable)
+          const obs = new MutationObserver(mutations => {
+            mutations.forEach(m => {
+              if (m.type === 'childList') {
+                m.addedNodes.forEach(n => {
+                  if (n.nodeType === 1) {
+                    patch(n);
+                    n.querySelectorAll('a, button, [role="button"]').forEach(patch);
+                    if (n.tagName === 'SCRIPT' && n.src && !n.src.includes('/api/proxy')) {
+                      n.src = PROXY_URL + encodeURIComponent(n.src) + '&overrideHost=' + TARGET_HOST;
+                    }
+                  }
+                });
+              } else if (m.type === 'attributes' && (m.attributeName === 'href' || m.attributeName === 'src')) {
+                patch(m.target);
               }
-            }
-          })));
-          obs.observe(document.documentElement, { childList: true, subtree: true });
-          
-          window.addEventListener('load', () => {
-             document.querySelectorAll('a, button').forEach(patch);
+            });
           });
 
-          // 3. PROXY DE NETWORK (Fetch/XHR)
+          obs.observe(document.documentElement, { 
+            childList: true, 
+            subtree: true, 
+            attributes: true, 
+            attributeFilter: ['href', 'src'] 
+          });
+          
+          window.addEventListener('DOMContentLoaded', () => {
+             document.querySelectorAll('a, button, [role="button"]').forEach(patch);
+          });
+
+          // 4. PROXY DE NETWORK (Fetch/XHR)
           const _fetch = window.fetch;
           window.fetch = async function(res, cfg) {
             let url = typeof res === 'string' ? res : (res instanceof Request ? res.url : res);
@@ -163,7 +199,15 @@ export async function GET(
     $('head').prepend(engineScript);
 
     // ═══════════════════════════════════════════════
-    // 3. REESCRITA DE ASSETS (Proxy Agressivo)
+    // 3. INJEÇÃO DE TRACKING NATIVO (Utmify)
+    // ═══════════════════════════════════════════════
+    $('head').append(`
+<!-- UTMIFY UTMs TRACKING -->
+<script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>
+    `);
+
+    // ═══════════════════════════════════════════════
+    // 4. REESCRITA DE ASSETS (Proxy Agressivo)
     // ═══════════════════════════════════════════════
     const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper'];
     
@@ -174,25 +218,24 @@ export async function GET(
       
       if (!val || val.startsWith('data:') || val.startsWith('javascript:')) return;
 
-      // 1. Âncoras (Físico)
+      // 1. Âncoras
       if (val.startsWith('#')) {
         $(el).attr(attr, `javascript:document.querySelector('${val}')?.scrollIntoView({behavior:'smooth'})`);
         return;
       }
 
-      // 2. Checkout (Físico)
+      // 2. Checkout
       if (tag === 'A' && checkoutUrl && gateways.some(g => val.toLowerCase().includes(g))) {
         $(el).attr(attr, checkoutUrl);
         return;
       }
 
-      // 3. PROXY TOTAL (Scripts e Estilos) - Resolve SPA e CORS
+      // 3. PROXY TOTAL (Scripts e Estilos)
       const isScriptOrStyle = tag === 'SCRIPT' || (tag === 'LINK' && $(el).attr('rel') === 'stylesheet');
 
       if (isScriptOrStyle) {
         const absoluteVal = val.startsWith('/') ? baseUrl + val : (val.startsWith('http') ? val : baseUrl + '/' + val);
-        const timestamp = Date.now();
-        const proxied = `${currentOrigin}/api/proxy?url=${encodeURIComponent(absoluteVal)}&overrideHost=${targetHost}&t=${timestamp}`;
+        const proxied = `${currentOrigin}/api/proxy?url=${encodeURIComponent(absoluteVal)}&overrideHost=${targetHost}`;
         $(el).attr(attr, proxied);
         $(el).removeAttr('integrity');
         $(el).removeAttr('crossorigin');
@@ -205,7 +248,12 @@ export async function GET(
     if (config.body_scripts) $('body').append(config.body_scripts);
 
     return new NextResponse($.html(), {
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      headers: { 
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
     });
 
   } catch (error: any) {

@@ -44,68 +44,179 @@ function LoginContent() {
     }
   };
 
+  const playClickSound = () => {
+    try {
+      const AudioContext = (window.AudioContext || (window as any).webkitAudioContext);
+      const audioCtx = new AudioContext();
+      
+      // Gerador de ruído branco para um "click" mecânico real
+      const bufferSize = audioCtx.sampleRate * 0.05;
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'highpass';
+      filter.frequency.value = 2000;
+
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      noise.start();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) {}
+  };
+
   const toggleLamp = () => {
-    setIsPulling(true);
-    setTimeout(() => {
-      setIsLampOn(!isLampOn);
+    const newState = !isLampOn;
+    setIsLampOn(newState);
+    playClickSound();
+  };
+
+  const handlePullStart = () => setIsPulling(true);
+  const handlePullEnd = () => {
+    if (isPulling) {
+      toggleLamp();
       setIsPulling(false);
-    }, 150);
+    }
   };
 
   return (
-    <div className={`min-h-screen transition-colors duration-700 flex flex-col items-center justify-center p-4 overflow-hidden ${isLampOn ? 'bg-[#1c1f24]' : 'bg-[#0f1115]'}`}>
+    <div 
+      className="min-h-screen transition-all duration-1000 flex flex-col items-center justify-center p-4 overflow-hidden relative"
+      style={{
+        background: isLampOn 
+          ? 'radial-gradient(circle at 50% 35%, #1e222b 0%, #050608 100%)' 
+          : '#050608'
+      }}
+    >
       
       {/* Lamp Area */}
       <div className="relative mb-8 flex flex-col items-center">
         {/* Lamp Base & Shade */}
         <div className="relative z-20">
-          {/* Light Glow */}
+          {/* Light Glow - Efeito Encantador */}
           <AnimatePresence>
             {isLampOn && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.5 }}
-                className="absolute top-4 left-1/2 -translate-x-1/2 w-[300px] h-[300px] bg-yellow-400/20 blur-[80px] rounded-full pointer-events-none"
-              />
+              <>
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-yellow-500/5 blur-[120px] rounded-full pointer-events-none"
+                />
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[400px] bg-gradient-to-b from-yellow-400/10 to-transparent blur-[60px] rounded-full pointer-events-none"
+                />
+              </>
             )}
           </AnimatePresence>
 
-          <svg width="180" height="220" viewBox="0 0 180 220" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-2xl">
-            {/* Base */}
-            <rect x="60" y="190" width="60" height="8" rx="4" fill={isLampOn ? "#e2e8f0" : "#334155"} />
-            <rect x="86" y="100" width="8" height="90" fill={isLampOn ? "#cbd5e1" : "#1e293b"} />
+          <svg width="220" height="260" viewBox="0 0 200 240" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-2xl overflow-visible">
+            {/* Haste central */}
+            <rect x="99" y="40" width="2" height="170" fill={isLampOn ? "#475569" : "#0f172a"} />
             
-            {/* Shade */}
-            <path d="M20 100C20 60 55.8172 40 90 40C124.183 40 160 60 160 100H20Z" fill={isLampOn ? "#f8fafc" : "#0f172a"} />
+            {/* Base inferior */}
+            <rect x="75" y="210" width="50" height="4" rx="2" fill={isLampOn ? "#334155" : "#1e293b"} />
             
-            {/* Cordinha Interativa (Click to Pull) */}
+            {/* Cúpula da Luminária */}
+            <defs>
+              <linearGradient id="shadeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor={isLampOn ? "#ffffff" : "#1e293b"} />
+                <stop offset="60%" stopColor={isLampOn ? "#fffbeb" : "#0f172a"} />
+                <stop offset="100%" stopColor={isLampOn ? "#fde68a" : "#020617"} />
+              </linearGradient>
+              <filter id="lampGlow">
+                <feGaussianBlur stdDeviation="4" result="blur"/>
+                <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+              </filter>
+            </defs>
+            
+            <path 
+              d="M30 100C30 60 65.8172 40 100 40C134.183 40 170 60 170 100H30Z" 
+              fill="url(#shadeGradient)"
+              filter={isLampOn ? "url(#lampGlow)" : "none"}
+              className="transition-all duration-500"
+            />
+            
+            {/* Bocal interno para a corda (Esconde a conexão) */}
+            <rect x="116" y="95" width="8" height="10" rx="1" fill={isLampOn ? "#92400e" : "#020617"} />
+
+            {/* Cordinha Interativa (Física de Alta Precisão) */}
             <motion.g 
-              onClick={toggleLamp}
+              onPointerDown={handlePullStart}
+              onPointerUp={handlePullEnd}
+              onPointerLeave={() => isPulling && setIsPulling(false)}
               animate={{ 
-                y: isPulling ? 20 : 0,
-                rotate: [0, -1, 0, 1, 0],
+                rotate: isPulling ? [0, 1, -1, 0] : [0, -0.5, 0.5, -0.2, 0.2, 0],
               }}
               transition={{
-                y: { type: "spring", stiffness: 300, damping: 10 },
-                rotate: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+                rotate: { 
+                  duration: isPulling ? 0.2 : 6, 
+                  repeat: isPulling ? 0 : Infinity, 
+                  ease: "easeInOut" 
+                }
               }}
-              style={{ originX: "105px", originY: "100px" }}
-              className="cursor-pointer group"
+              style={{ originX: "120px", originY: "95px" }}
+              className="cursor-pointer"
             >
-              <line x1="105" y1="100" x2="105" y2="150" stroke={isLampOn ? "#94a3b8" : "#475569"} strokeWidth="2" />
-              <circle cx="105" cy="155" r="7" fill={isLampOn ? "#f59e0b" : "#475569"} className="group-hover:fill-yellow-500 transition-colors shadow-xl" />
+              {/* Fio de Nylon/Seda */}
+              <motion.line 
+                x1="120" 
+                y1="95" 
+                x2="120" 
+                animate={{ 
+                  y2: isPulling ? 190 : 155 
+                }}
+                transition={{ 
+                  type: "spring", 
+                  stiffness: 700, 
+                  damping: 35 
+                }}
+                stroke={isLampOn ? "#fbbf24" : "#475569"} 
+                strokeWidth="1.5" 
+                strokeLinecap="round"
+              />
               
-              {/* Tooltip discreto */}
+              {/* Puxador de Latão/Ouro */}
+              <motion.circle 
+                cx="120" 
+                animate={{ 
+                  cy: isPulling ? 195 : 160 
+                }}
+                transition={{ 
+                  type: "spring", 
+                  stiffness: 700, 
+                  damping: 35 
+                }}
+                r="7" 
+                fill={isLampOn ? "#fbbf24" : "#64748b"} 
+                className="hover:fill-yellow-400 transition-all shadow-2xl"
+                style={{ filter: isLampOn ? 'drop-shadow(0 0 8px rgba(251, 191, 36, 0.6))' : 'none' }}
+              />
+
               {!isLampOn && (
                 <motion.text 
-                  x="120" y="160" 
+                  x="135" y="165" 
                   initial={{ opacity: 0 }}
-                  animate={{ opacity: [0, 1, 0] }}
-                  transition={{ duration: 3, repeat: Infinity }}
-                  className="fill-white/20 text-[10px] font-bold pointer-events-none"
+                  animate={{ opacity: [0, 0.5, 0] }}
+                  transition={{ duration: 4, repeat: Infinity }}
+                  className="fill-white/30 text-[9px] font-bold pointer-events-none uppercase tracking-[0.3em]"
                 >
-                  CLIQUE
+                  Clique
                 </motion.text>
               )}
             </motion.g>

@@ -10,30 +10,39 @@ export async function DELETE(req: Request) {
     }
 
     // Deletar assets do storage
-    const { data: files } = await supabaseAdmin.storage
-      .from('page-assets')
-      .list(`pages/${pageId}`, { limit: 1000 });
+    try {
+      const bucket = 'page-assets';
+      const folderPath = `pages/${pageId}`;
 
-    if (files && files.length > 0) {
-      // Listar recursivamente
-      const allPaths: string[] = [];
-      async function listRecursive(prefix: string) {
-        const { data } = await supabaseAdmin.storage.from('page-assets').list(prefix, { limit: 1000 });
-        if (!data) return;
+      // Função recursiva para listar todos os arquivos em um diretório
+      async function getAllFiles(path: string): Promise<string[]> {
+        const { data, error } = await supabaseAdmin.storage.from(bucket).list(path, { limit: 1000 });
+        if (error) throw error;
+        if (!data || data.length === 0) return [];
+
+        let files: string[] = [];
         for (const item of data) {
-          const path = `${prefix}/${item.name}`;
-          if (item.metadata) {
-            allPaths.push(path);
+          const fullPath = `${path}/${item.name}`;
+          // Se não tiver id, é uma pasta virtual
+          if (!item.id) {
+            const subFiles = await getAllFiles(fullPath);
+            files = [...files, ...subFiles];
           } else {
-            await listRecursive(path);
+            files.push(fullPath);
           }
         }
+        return files;
       }
-      await listRecursive(`pages/${pageId}`);
+
+      const allFiles = await getAllFiles(folderPath);
       
-      if (allPaths.length > 0) {
-        await supabaseAdmin.storage.from('page-assets').remove(allPaths);
+      if (allFiles.length > 0) {
+        // O remove aceita um array de caminhos relativos ao bucket
+        await supabaseAdmin.storage.from(bucket).remove(allFiles);
       }
+    } catch (storageError) {
+      console.error('Erro ao limpar storage:', storageError);
+      // Não trava a deleção do banco se falhar no storage
     }
 
     // Deletar do banco

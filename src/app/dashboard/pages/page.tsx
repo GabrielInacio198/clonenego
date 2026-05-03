@@ -185,33 +185,34 @@ export default function PagesList() {
   return (
     <div className="space-y-6">
       {/* Header com Busca e Ações em Lote */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
         <div>
-          <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-            Páginas Clonadas
-            <span className="text-sm font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-2.5 py-0.5 rounded-full">
+          <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+            Páginas
+            <span className="text-xs font-bold bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded-lg">
               {pages.length}
             </span>
           </h2>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">Gerencie suas clonagens de alta performance.</p>
+          <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm md:text-base">Gerencie suas clonagens de alta performance.</p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
           {selectedIds.length > 0 && (
             <button
               onClick={() => confirmDelete(selectedIds)}
-              className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/30 transition-all font-semibold shadow-sm border border-red-200 dark:border-red-800/50"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/30 transition-all font-bold text-sm shadow-sm border border-red-200 dark:border-red-800/50"
             >
               <Trash2 size={18} />
-              <span>Excluir ({selectedIds.length})</span>
+              <span className="hidden xs:inline">Excluir ({selectedIds.length})</span>
+              <span className="xs:hidden">({selectedIds.length})</span>
             </button>
           )}
           <Link
             href="/dashboard/pages/new"
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl transition-all font-bold shadow-lg shadow-purple-500/20 active:scale-95"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl transition-all font-bold text-sm shadow-lg shadow-purple-500/20 active:scale-95"
           >
             <Plus size={20} />
-            <span>Clonar Página</span>
+            <span>Clonar</span>
           </Link>
         </div>
       </div>
@@ -263,103 +264,105 @@ export default function PagesList() {
           {filteredPages.map((page) => (
             <div 
               key={page.id} 
-              className={`group bg-white dark:bg-slate-800 rounded-2xl border transition-all duration-300 flex items-center gap-4 p-4 ${
+              className={`group bg-white dark:bg-slate-800 rounded-2xl border transition-all duration-300 flex flex-col sm:flex-row sm:items-center gap-4 p-4 ${
                 selectedIds.includes(page.id) 
                   ? 'border-purple-500 ring-2 ring-purple-500/10 bg-purple-50/30 dark:bg-purple-900/10' 
                   : 'border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-600 shadow-sm'
               }`}
             >
-              {/* Checkbox */}
-              <button 
-                onClick={() => toggleSelect(page.id)}
-                className={`shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
-                  selectedIds.includes(page.id)
-                    ? 'bg-purple-600 border-purple-600 text-white'
-                    : 'border-slate-200 dark:border-slate-600 hover:border-purple-400'
-                }`}
-              >
-                {selectedIds.includes(page.id) && <Check size={16} strokeWidth={3} />}
-              </button>
-
-              {/* Preview/Icon */}
-              <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-purple-500/20 shrink-0">
-                <FileText size={26} />
-              </div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                {renamingId === page.id ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      autoFocus
-                      type="text"
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleRename(page.id)}
-                      className="flex-1 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border-2 border-purple-500 rounded-xl text-sm font-bold dark:text-white outline-none"
-                    />
-                    <button onClick={() => handleRename(page.id)} className="p-2 text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg"><Check size={20} /></button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-slate-900 dark:text-white truncate text-lg">{page.name}</h3>
-                    <button
-                      onClick={() => { setRenamingId(page.id); setRenameValue(page.name); }}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-purple-500 transition-all"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                  </div>
-                )}
-                
-                <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                  <Globe size={12} />
-                  <span className="truncate max-w-[200px] md:max-w-md">{page.original_url}</span>
+              <div className="flex items-center gap-4 flex-1 min-w-0">
+                {/* Checkbox */}
+                <button 
+                  onClick={() => toggleSelect(page.id)}
+                  className={`shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                    selectedIds.includes(page.id)
+                      ? 'bg-purple-600 border-purple-600 text-white'
+                      : 'border-slate-200 dark:border-slate-600 hover:border-purple-400'
+                  }`}
+                >
+                  {selectedIds.includes(page.id) && <Check size={16} strokeWidth={3} />}
+                </button>
+  
+                {/* Preview/Icon */}
+                <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-purple-500/20 shrink-0">
+                  <FileText size={22} className="md:size-[26px]" />
                 </div>
-
-                <div className="flex items-center gap-3 mt-3">
-                  <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600">
-                    ID: {page.id.slice(0, 8)}
-                  </span>
-                  {page.config?.checkout_url && (
-                    <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
-                      Checkout Ativo
-                    </span>
+  
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  {renamingId === page.id ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleRename(page.id)}
+                        className="flex-1 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border-2 border-purple-500 rounded-xl text-sm font-bold dark:text-white outline-none"
+                      />
+                      <button onClick={() => handleRename(page.id)} className="p-2 text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg"><Check size={20} /></button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-slate-900 dark:text-white truncate text-base md:text-lg">{page.name}</h3>
+                      <button
+                        onClick={() => { setRenamingId(page.id); setRenameValue(page.name); }}
+                        className="sm:opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-purple-500 transition-all"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </div>
                   )}
+                  
+                  <div className="flex items-center gap-2 text-[10px] md:text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                    <Globe size={12} className="shrink-0" />
+                    <span className="truncate max-w-[150px] xs:max-w-[200px] md:max-w-md">{page.original_url}</span>
+                  </div>
+  
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600">
+                      ID: {page.id.slice(0, 6)}
+                    </span>
+                    {page.config?.checkout_url && (
+                      <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+                        Checkout
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-2 pr-2">
-                <div className="hidden md:flex flex-col items-end mr-4 text-right">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Criado em</span>
-                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">{new Date(page.created_at).toLocaleDateString('pt-BR')}</span>
+              <div className="flex items-center justify-between sm:justify-end gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-700/50">
+                <div className="flex flex-col items-start sm:items-end sm:mr-4 text-left sm:text-right">
+                  <span className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">Criado em</span>
+                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{new Date(page.created_at).toLocaleDateString('pt-BR')}</span>
                 </div>
                 
-                <button
-                  onClick={() => copyUrl(page)}
-                  className="p-2.5 text-slate-400 hover:text-purple-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all"
-                  title="Copiar Link"
-                >
-                  {copiedId === page.id ? <CheckCheck size={20} className="text-green-500" /> : <Copy size={20} />}
-                </button>
-                
-                <Link
-                  href={`/dashboard/pages/${page.id}`}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-sm hover:bg-purple-600 hover:text-white dark:hover:bg-purple-600 transition-all shadow-sm"
-                >
-                  <Settings2 size={18} />
-                  <span className="hidden lg:inline">Configurar</span>
-                </Link>
-
-                <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block"></div>
-
-                <button
-                  onClick={() => confirmDelete([page.id])}
-                  className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
-                >
-                  <Trash2 size={20} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => copyUrl(page)}
+                    className="p-2 text-slate-400 hover:text-purple-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all"
+                    title="Copiar Link"
+                  >
+                    {copiedId === page.id ? <CheckCheck size={18} className="text-green-500" /> : <Copy size={18} />}
+                  </button>
+                  
+                  <Link
+                    href={`/dashboard/pages/${page.id}`}
+                    className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-xs hover:bg-purple-600 hover:text-white dark:hover:bg-purple-600 transition-all shadow-sm"
+                  >
+                    <Settings2 size={16} />
+                    <span>Configurar</span>
+                  </Link>
+  
+                  <button
+                    onClick={() => confirmDelete([page.id])}
+                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
