@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Lock, Eye, EyeOff, Loader2, Shield, Mail } from 'lucide-react';
+import { Lock, Eye, EyeOff, Loader2, Mail, ShieldCheck } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 function LoginContent() {
   const [email, setEmail] = useState('');
@@ -10,6 +11,8 @@ function LoginContent() {
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isLampOn, setIsLampOn] = useState(false);
+  const [isPulling, setIsPulling] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get('from') || '/dashboard';
@@ -32,7 +35,7 @@ function LoginContent() {
         router.push(from);
         router.refresh();
       } else {
-        setError(data.error || 'Erro ao realizar login. Tente novamente.');
+        setError(data.error || 'Acesso negado. Verifique suas credenciais.');
       }
     } catch {
       setError('Erro de conexão. Tente novamente.');
@@ -41,90 +44,165 @@ function LoginContent() {
     }
   };
 
+  const toggleLamp = () => {
+    setIsPulling(true);
+    setTimeout(() => {
+      setIsLampOn(!isLampOn);
+      setIsPulling(false);
+    }, 150);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
+    <div className={`min-h-screen transition-colors duration-700 flex flex-col items-center justify-center p-4 overflow-hidden ${isLampOn ? 'bg-[#1c1f24]' : 'bg-[#0f1115]'}`}>
       
-      {/* Background pattern */}
-      <div className="absolute inset-0 opacity-10" style={{
-        backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0)`,
-        backgroundSize: '40px 40px'
-      }} />
-
-      <div className="relative w-full max-w-md">
-        {/* Card */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
-          
-          {/* Logo */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg mb-4">
-              <Shield size={32} className="text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-white">SnapFunnel</h1>
-            <p className="text-blue-300 text-sm mt-1">Área Restrita — Acesso Autorizado</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-blue-200 mb-2">
-                <Mail size={14} className="inline mr-1" /> Seu E-mail
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.com"
-                required
-                autoFocus
-                className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium"
+      {/* Lamp Area */}
+      <div className="relative mb-8 flex flex-col items-center">
+        {/* Lamp Base & Shade */}
+        <div className="relative z-20">
+          {/* Light Glow */}
+          <AnimatePresence>
+            {isLampOn && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.5 }}
+                className="absolute top-4 left-1/2 -translate-x-1/2 w-[300px] h-[300px] bg-yellow-400/20 blur-[80px] rounded-full pointer-events-none"
               />
-            </div>
+            )}
+          </AnimatePresence>
 
-            <div>
-              <label className="block text-sm font-medium text-blue-200 mb-2">
-                <Lock size={14} className="inline mr-1" /> Senha de Acesso
-              </label>
-              <div className="relative">
-                <input
-                  type={showPwd ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Sua senha secreta"
-                  required
-                  className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12 font-medium"
-                />
+          <svg width="180" height="220" viewBox="0 0 180 220" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-2xl">
+            {/* Base */}
+            <rect x="60" y="190" width="60" height="8" rx="4" fill={isLampOn ? "#e2e8f0" : "#334155"} />
+            <rect x="86" y="100" width="8" height="90" fill={isLampOn ? "#cbd5e1" : "#1e293b"} />
+            
+            {/* Shade */}
+            <path d="M20 100C20 60 55.8172 40 90 40C124.183 40 160 60 160 100H20Z" fill={isLampOn ? "#f8fafc" : "#0f172a"} />
+            
+            {/* Cordinha (Pull Cord) */}
+            <motion.g 
+              animate={{ y: isPulling ? 15 : 0 }}
+              onClick={toggleLamp}
+              className="cursor-pointer group"
+            >
+              <line x1="105" y1="100" x2="105" y2="150" stroke={isLampOn ? "#94a3b8" : "#475569"} strokeWidth="2" />
+              <circle cx="105" cy="155" r="6" fill={isLampOn ? "#f59e0b" : "#475569"} className="group-hover:fill-yellow-500 transition-colors" />
+            </motion.g>
+          </svg>
+        </div>
+
+        <motion.h1 
+          animate={{ opacity: isLampOn ? 1 : 0.3 }}
+          className="text-white text-3xl font-light tracking-[0.2em] mt-4 uppercase"
+        >
+          SnapFunnel
+        </motion.h1>
+      </div>
+
+      {/* Login Form Container */}
+      <div className="relative w-full max-w-md h-[450px]">
+        <AnimatePresence>
+          {isLampOn && (
+            <motion.div
+              initial={{ opacity: 0, y: 40, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ type: "spring", damping: 25, stiffness: 120 }}
+              className="absolute inset-0"
+            >
+              <div className="bg-[#2a2e35]/80 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] h-full flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center space-x-3 mb-8">
+                    <div className="p-2 bg-blue-500/20 rounded-xl">
+                      <ShieldCheck className="text-blue-400" size={24} />
+                    </div>
+                    <h2 className="text-xl font-medium text-white/90">Bem-vindo de volta</h2>
+                  </div>
+
+                  <form onSubmit={handleLogin} className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold text-white/40 uppercase tracking-widest px-1">Usuário</label>
+                      <div className="relative">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={18} />
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="seu@email.com"
+                          required
+                          className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white/10 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold text-white/40 uppercase tracking-widest px-1">Senha</label>
+                      <div className="relative">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={18} />
+                        <input
+                          type={showPwd ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••"
+                          required
+                          className="w-full pl-12 pr-12 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white/10 transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPwd(!showPwd)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/60 transition-colors"
+                        >
+                          {showPwd ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {error && (
+                      <motion.p 
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="text-red-400 text-sm px-1"
+                      >
+                        {error}
+                      </motion.p>
+                    )}
+                  </form>
+                </div>
+
                 <button
-                  type="button"
-                  onClick={() => setShowPwd(!showPwd)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/80 transition-colors"
+                  onClick={handleLogin}
+                  disabled={loading || !password || !email}
+                  className="w-full py-4 bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 hover:from-yellow-300 hover:to-yellow-400 text-slate-900 font-bold rounded-2xl transition-all shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:grayscale flex items-center justify-center gap-3 mt-4"
                 >
-                  {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {loading ? (
+                    <><Loader2 size={20} className="animate-spin" /> Verificando...</>
+                  ) : (
+                    <span>Acessar Painel</span>
+                  )}
                 </button>
               </div>
-            </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-            {error && (
-              <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-300 text-sm text-center">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading || !password || !email}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
+        {/* Placeholder when lamp is off */}
+        <AnimatePresence>
+          {!isLampOn && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 flex items-center justify-center pointer-events-none"
             >
-              {loading ? (
-                <><Loader2 size={18} className="animate-spin" /> Verificando...</>
-              ) : (
-                <><Lock size={18} /> Entrar no Painel</>
-              )}
-            </button>
-          </form>
+              <p className="text-white/10 text-sm uppercase tracking-[0.4em] animate-pulse">Puxe para iniciar</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-          <p className="text-center text-white/30 text-xs mt-6">
-            Acesso protegido — Apenas o proprietário pode entrar
-          </p>
-        </div>
+      {/* Footer Decoration */}
+      <div className="fixed bottom-8 text-white/10 text-[10px] uppercase tracking-[0.5em] pointer-events-none">
+        SnapFunnel © 2026 • Secure Access Layer
       </div>
     </div>
   );
@@ -133,7 +211,7 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-[#0f1115] flex items-center justify-center">
         <Loader2 className="text-blue-500 animate-spin" size={48} />
       </div>
     }>
