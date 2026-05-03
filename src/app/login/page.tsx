@@ -79,26 +79,19 @@ function LoginContent() {
             {/* Shade */}
             <path d="M20 100C20 60 55.8172 40 90 40C124.183 40 160 60 160 100H20Z" fill={isLampOn ? "#f8fafc" : "#0f172a"} />
             
-            {/* Cordinha Interativa (Física e Balanço) */}
+            {/* Cordinha Interativa (Click to Pull) */}
             <motion.g 
-              drag="y"
-              dragConstraints={{ top: 0, bottom: 40 }}
-              dragElastic={0.2}
-              onDragEnd={(_, info) => {
-                if (info.offset.y > 20) {
-                  toggleLamp();
-                }
-              }}
+              onClick={toggleLamp}
               animate={{ 
-                rotate: [0, -2, 0, 2, 0],
-                x: [0, -1, 0, 1, 0]
+                y: isPulling ? 20 : 0,
+                rotate: [0, -1, 0, 1, 0],
               }}
               transition={{
-                rotate: { duration: 4, repeat: Infinity, ease: "easeInOut" },
-                x: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+                y: { type: "spring", stiffness: 300, damping: 10 },
+                rotate: { duration: 4, repeat: Infinity, ease: "easeInOut" }
               }}
               style={{ originX: "105px", originY: "100px" }}
-              className="cursor-grab active:cursor-grabbing group"
+              className="cursor-pointer group"
             >
               <line x1="105" y1="100" x2="105" y2="150" stroke={isLampOn ? "#94a3b8" : "#475569"} strokeWidth="2" />
               <circle cx="105" cy="155" r="7" fill={isLampOn ? "#f59e0b" : "#475569"} className="group-hover:fill-yellow-500 transition-colors shadow-xl" />
@@ -112,7 +105,7 @@ function LoginContent() {
                   transition={{ duration: 3, repeat: Infinity }}
                   className="fill-white/20 text-[10px] font-bold pointer-events-none"
                 >
-                  PUXE
+                  CLIQUE
                 </motion.text>
               )}
             </motion.g>
