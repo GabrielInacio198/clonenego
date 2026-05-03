@@ -53,29 +53,31 @@ async function handleProxy(req: Request) {
     const responseBody = await response.arrayBuffer();
     const responseHeaders = new Headers(response.headers);
     
+    // 1. LIMPEZA DE SEGURANÇA (Anti-Anti-Cloning)
     responseHeaders.set('Access-Control-Allow-Origin', '*');
     responseHeaders.delete('content-encoding');
+    responseHeaders.delete('content-security-policy');
+    responseHeaders.delete('content-security-policy-report-only');
+    responseHeaders.delete('x-frame-options');
 
     const contentType = responseHeaders.get('content-type') || '';
     const overrideHost = urlObj.searchParams.get('overrideHost');
 
-    // Se for JS e tivermos um overrideHost, fazemos a magia de enganar o script
+    // 2. JS SPOOFING (Deep Fix para SPAs)
     if (overrideHost && (contentType.includes('javascript') || targetUrl.endsWith('.js'))) {
         const decoder = new TextDecoder('utf-8');
         let jsContent = decoder.decode(responseBody);
         
-        // Substituir as chamadas de location para o host alvo
-        jsContent = jsContent.replace(/window\.location\.hostname/g, `"${overrideHost}"`);
-        jsContent = jsContent.replace(/document\.location\.hostname/g, `"${overrideHost}"`);
-        jsContent = jsContent.replace(/location\.hostname/g, `"${overrideHost}"`);
-        
-        jsContent = jsContent.replace(/window\.location\.host/g, `"${overrideHost}"`);
-        jsContent = jsContent.replace(/document\.location\.host/g, `"${overrideHost}"`);
-        jsContent = jsContent.replace(/location\.host/g, `"${overrideHost}"`);
+        const hostOnly = overrideHost.split(':')[0];
+        const origin = `https://${overrideHost}`;
 
-        jsContent = jsContent.replace(/window\.location\.origin/g, `"https://${overrideHost}"`);
-        jsContent = jsContent.replace(/document\.location\.origin/g, `"https://${overrideHost}"`);
-        jsContent = jsContent.replace(/location\.origin/g, `"https://${overrideHost}"`);
+        // Substituições de location para enganar o roteamento interno
+        jsContent = jsContent.replace(/window\.location\.hostname/g, `"${hostOnly}"`);
+        jsContent = jsContent.replace(/location\.hostname/g, `"${hostOnly}"`);
+        jsContent = jsContent.replace(/window\.location\.host/g, `"${overrideHost}"`);
+        jsContent = jsContent.replace(/location\.host/g, `"${overrideHost}"`);
+        jsContent = jsContent.replace(/window\.location\.origin/g, `"${origin}"`);
+        jsContent = jsContent.replace(/location\.origin/g, `"${origin}"`);
 
         return new NextResponse(jsContent, {
             status: response.status,
@@ -83,7 +85,7 @@ async function handleProxy(req: Request) {
         });
     }
 
-    // Se for CSS, reescrevemos as URLs internas (fontes, imagens) para serem absolutas
+    // 3. CSS ASSET FIX
     if (contentType.includes('css') || targetUrl.endsWith('.css')) {
         const decoder = new TextDecoder('utf-8');
         let cssContent = decoder.decode(responseBody);
@@ -92,13 +94,9 @@ async function handleProxy(req: Request) {
         const baseUrl = targetUrlObj.origin;
         const dirUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
 
-        // Regex para encontrar url(...) - lidando com aspas opcionais e espaços
         cssContent = cssContent.replace(/url\s*\(\s*['"]?([^'")]*)['"]?\s*\)/gi, (match, url) => {
-            if (url.startsWith('data:') || url.startsWith('javascript:')) {
-                return match;
-            }
+            if (url.startsWith('data:') || url.startsWith('javascript:')) return match;
             
-            // Tornar URL absoluta
             let absolute = url;
             if (url.startsWith('//')) {
                 absolute = 'https:' + url;
@@ -106,7 +104,6 @@ async function handleProxy(req: Request) {
                 absolute = url.startsWith('/') ? baseUrl + url : dirUrl + url;
             }
             
-            // Proxiar fontes para evitar CORS
             if (/\.(woff2?|ttf|otf|eot|svg|png|jpg|jpeg|gif|webp)(\?.*)?$/i.test(url.split('#')[0].split('?')[0])) {
                 return `url("/api/proxy?url=${encodeURIComponent(absolute)}&overrideHost=${overrideHost || ''}")`;
             }
@@ -120,6 +117,7 @@ async function handleProxy(req: Request) {
         });
     }
 
+    // 4. MODO TRANSPARENTE
     return new NextResponse(responseBody, {
       status: response.status,
       headers: responseHeaders
