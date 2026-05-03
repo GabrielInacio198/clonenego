@@ -151,25 +151,44 @@ export async function GET(
     $('head').prepend(engineScript);
 
     // ═══════════════════════════════════════════════
-    // 3. REESCRITA DE ÂNCORAS E CHECKOUT (No HTML)
+    // 3. REESCRITA DE ASSETS E CHECKOUT (Híbrido)
     // ═══════════════════════════════════════════════
     const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper'];
     
-    $('a').each((_, el) => {
-      const href = $(el).attr('href') || '';
+    $('[src], [href]').each((_, el) => {
+      const tag = $(el).prop('tagName');
+      const attr = $(el).attr('src') ? 'src' : 'href';
+      let val = $(el).attr(attr) || '';
       
-      // Corrigir Âncoras Fisicamente
-      if (href.startsWith('#')) {
-        $(el).attr('href', `javascript:document.querySelector('${href}')?.scrollIntoView({behavior:'smooth'})`);
-      } 
-      // Corrigir Checkout Fisicamente
-      else if (checkoutUrl && gateways.some(g => href.toLowerCase().includes(g))) {
-        $(el).attr('href', checkoutUrl);
+      if (!val || val.startsWith('data:') || val.startsWith('javascript:')) return;
+
+      // 1. Âncoras (Físico)
+      if (val.startsWith('#')) {
+        $(el).attr(attr, `javascript:document.querySelector('${val}')?.scrollIntoView({behavior:'smooth'})`);
+        return;
+      }
+
+      // 2. Checkout (Físico)
+      if (tag === 'A' && checkoutUrl && gateways.some(g => val.toLowerCase().includes(g))) {
+        $(el).attr(attr, checkoutUrl);
+        return;
+      }
+
+      // 3. Proxy de Scripts/Styles Internos (Resolve o Cabeçalho Branco / CORS)
+      const isInternal = val.startsWith('/') || val.includes(targetHost);
+      const isScriptOrStyle = tag === 'SCRIPT' || (tag === 'LINK' && $(el).attr('rel') === 'stylesheet');
+
+      if (isScriptOrStyle && isInternal) {
+        const absoluteVal = val.startsWith('/') ? baseUrl + val : (val.startsWith('http') ? val : baseUrl + '/' + val);
+        const proxied = `${currentOrigin}/api/proxy?url=${encodeURIComponent(absoluteVal)}&overrideHost=${targetHost}`;
+        $(el).attr(attr, proxied);
+        $(el).removeAttr('integrity');
+        $(el).removeAttr('crossorigin');
       }
     });
 
-    // Injetar Pixels (Garantir que não quebrem o layout)
-    if (config.pixel_script) $('head').append(`<div id="pixel-container" style="display:none">${config.pixel_script}</div>`);
+    // Injetar Pixels de forma isolada
+    if (config.pixel_script) $('body').append(`<div id="sf-pixel" style="display:none !important">${config.pixel_script}</div>`);
     if (config.head_scripts) $('head').append(config.head_scripts);
     if (config.body_scripts) $('body').append(config.body_scripts);
 
