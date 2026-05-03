@@ -44,14 +44,14 @@ function LoginContent() {
     }
   };
 
-  const playClickSound = (isOn: boolean) => {
+  const playClickSound = () => {
     try {
       const AudioContext = (window.AudioContext || (window as any).webkitAudioContext);
       const audioCtx = new AudioContext();
       const now = audioCtx.currentTime;
 
-      // Componente de Ruído (O estalido mecânico)
-      const bufferSize = audioCtx.sampleRate * 0.05;
+      // Click mecânico seco (Ruído branco filtrado de curtíssima duração)
+      const bufferSize = audioCtx.sampleRate * 0.02;
       const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
       const data = buffer.getChannelData(0);
       for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
@@ -60,33 +60,17 @@ function LoginContent() {
       noise.buffer = buffer;
       const noiseFilter = audioCtx.createBiquadFilter();
       noiseFilter.type = 'highpass';
-      noiseFilter.frequency.setValueAtTime(isOn ? 3000 : 2500, now);
+      noiseFilter.frequency.setValueAtTime(4000, now);
       
       const noiseGain = audioCtx.createGain();
-      noiseGain.gain.setValueAtTime(0.03, now);
-      noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.03);
-
-      // Componente Tonal (O impacto metálico)
-      const oscillator = audioCtx.createOscillator();
-      const oscGain = audioCtx.createGain();
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(isOn ? 1800 : 1400, now);
-      oscillator.frequency.exponentialRampToValueAtTime(isOn ? 1000 : 800, now + 0.04);
-      
-      oscGain.gain.setValueAtTime(0.02, now);
-      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+      noiseGain.gain.setValueAtTime(0.04, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
 
       noise.connect(noiseFilter);
       noiseFilter.connect(noiseGain);
       noiseGain.connect(audioCtx.destination);
 
-      oscillator.connect(oscGain);
-      oscGain.connect(audioCtx.destination);
-
       noise.start(now);
-      oscillator.start(now);
-      oscillator.stop(now + 0.05);
-      
       if (audioCtx.state === 'suspended') audioCtx.resume();
     } catch (e) {}
   };
@@ -94,7 +78,7 @@ function LoginContent() {
   const toggleLamp = () => {
     const newState = !isLampOn;
     setIsLampOn(newState);
-    playClickSound(newState);
+    playClickSound();
   };
 
   const handlePullStart = () => setIsPulling(true);
@@ -107,7 +91,7 @@ function LoginContent() {
 
   return (
     <div 
-      className="min-h-screen transition-all duration-[1500ms] flex flex-col items-center justify-center p-4 overflow-hidden relative"
+      className="min-h-screen transition-all duration-700 flex flex-col items-center justify-center p-4 overflow-hidden relative"
       style={{
         background: isLampOn 
           ? 'radial-gradient(circle at 50% 35%, #1e222b 0%, #050608 100%)' 
@@ -119,7 +103,7 @@ function LoginContent() {
       <div className="relative mb-8 flex flex-col items-center">
         {/* Lamp Base & Shade */}
         <div className="relative z-20">
-          {/* Light Glow - Efeito Encantador */}
+          {/* Light Glow - Efeito Dinâmico */}
           <AnimatePresence>
             {isLampOn && (
               <>
@@ -127,13 +111,13 @@ function LoginContent() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-yellow-500/5 blur-[120px] rounded-full pointer-events-none"
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-yellow-400/5 blur-[120px] rounded-full pointer-events-none"
                 />
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0 }}
-                  className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[400px] bg-gradient-to-b from-yellow-400/10 to-transparent blur-[60px] rounded-full pointer-events-none"
+                  className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[400px] bg-gradient-to-b from-yellow-300/10 to-transparent blur-[60px] rounded-full pointer-events-none"
                 />
               </>
             )}
@@ -151,10 +135,10 @@ function LoginContent() {
               <linearGradient id="shadeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                 <stop offset="0%" stopColor={isLampOn ? "#ffffff" : "#1e293b"} />
                 <stop offset="60%" stopColor={isLampOn ? "#fffbeb" : "#0f172a"} />
-                <stop offset="100%" stopColor={isLampOn ? "#fde68a" : "#020617"} />
+                <stop offset="100%" stopColor={isLampOn ? "#fcd34d" : "#020617"} />
               </linearGradient>
               <filter id="lampGlow">
-                <feGaussianBlur stdDeviation="4" result="blur"/>
+                <feGaussianBlur stdDeviation="6" result="blur"/>
                 <feComposite in="SourceGraphic" in2="blur" operator="over"/>
               </filter>
             </defs>
@@ -167,19 +151,19 @@ function LoginContent() {
             />
             
             {/* Bocal interno para a corda */}
-            <rect x="116" y="95" width="8" height="10" rx="1" fill={isLampOn ? "#92400e" : "#020617"} />
+            <rect x="116" y="95" width="8" height="10" rx="1" fill={isLampOn ? "#b45309" : "#020617"} />
 
-            {/* Cordinha Interativa (Física de Alta Precisão) */}
+            {/* Cordinha Interativa (Dinâmica - Efeito Bounce) */}
             <motion.g 
               onPointerDown={handlePullStart}
               onPointerUp={handlePullEnd}
               onPointerLeave={() => isPulling && setIsPulling(false)}
               animate={{ 
-                rotate: isPulling ? [0, 1, -1, 0] : [0, -0.4, 0.4, -0.1, 0.1, 0],
+                rotate: isPulling ? [0, 2, -2, 0] : [0, -0.6, 0.6, -0.3, 0.3, 0],
               }}
               transition={{
                 rotate: { 
-                  duration: isPulling ? 0.2 : 8, 
+                  duration: isPulling ? 0.2 : 4, 
                   repeat: isPulling ? 0 : Infinity, 
                   ease: "easeInOut" 
                 }
@@ -193,14 +177,15 @@ function LoginContent() {
                 y1="95" 
                 x2="120" 
                 animate={{ 
-                  y2: isPulling ? 185 : 155 
+                  y2: isPulling ? 190 : 155 
                 }}
                 transition={{ 
                   type: "spring", 
-                  stiffness: 300, 
-                  damping: 25 
+                  stiffness: 600, 
+                  damping: 15,
+                  mass: 0.8
                 }}
-                stroke={isLampOn ? "#fbbf24" : "#475569"} 
+                stroke={isLampOn ? "#fcd34d" : "#475569"} 
                 strokeWidth="1.5" 
                 strokeLinecap="round"
               />
@@ -209,17 +194,18 @@ function LoginContent() {
               <motion.circle 
                 cx="120" 
                 animate={{ 
-                  cy: isPulling ? 190 : 160 
+                  cy: isPulling ? 195 : 160 
                 }}
                 transition={{ 
                   type: "spring", 
-                  stiffness: 300, 
-                  damping: 25 
+                  stiffness: 600, 
+                  damping: 15,
+                  mass: 0.8
                 }}
                 r="7" 
                 fill={isLampOn ? "#fbbf24" : "#64748b"} 
                 className="hover:fill-yellow-400 transition-all shadow-2xl"
-                style={{ filter: isLampOn ? 'drop-shadow(0 0 8px rgba(251, 191, 36, 0.6))' : 'none' }}
+                style={{ filter: isLampOn ? 'drop-shadow(0 0 10px rgba(251, 191, 36, 0.8))' : 'none' }}
               />
 
               {!isLampOn && (
