@@ -41,7 +41,11 @@ async function handleProxy(req: Request) {
 
     const response = await fetch(targetUrl, {
       method: req.method,
-      headers,
+      headers: {
+        ...Object.fromEntries(headers),
+        'Referer': new URL(targetUrl).origin + '/',
+        'Origin': new URL(targetUrl).origin,
+      },
       body,
       redirect: 'manual'
     });
@@ -90,13 +94,20 @@ async function handleProxy(req: Request) {
 
         // Regex para encontrar url(...) - lidando com aspas opcionais e espaços
         cssContent = cssContent.replace(/url\s*\(\s*['"]?([^'")]*)['"]?\s*\)/gi, (match, url) => {
-            if (url.startsWith('data:') || url.startsWith('http') || url.startsWith('//')) {
+            if (url.startsWith('data:') || url.startsWith('javascript:')) {
                 return match;
             }
-            const absolute = url.startsWith('/') ? baseUrl + url : dirUrl + url;
             
-            // Se for fonte ou ícone, PRECISAMOS proxiar para evitar erro de CORS
-            if (/\.(woff2?|ttf|otf|eot|svg)(\?.*)?$/i.test(url.split('#')[0].split('?')[0])) {
+            // Tornar URL absoluta
+            let absolute = url;
+            if (url.startsWith('//')) {
+                absolute = 'https:' + url;
+            } else if (!url.startsWith('http')) {
+                absolute = url.startsWith('/') ? baseUrl + url : dirUrl + url;
+            }
+            
+            // Proxiar fontes para evitar CORS
+            if (/\.(woff2?|ttf|otf|eot|svg|png|jpg|jpeg|gif|webp)(\?.*)?$/i.test(url.split('#')[0].split('?')[0])) {
                 return `url("/api/proxy?url=${encodeURIComponent(absolute)}&overrideHost=${overrideHost || ''}")`;
             }
             

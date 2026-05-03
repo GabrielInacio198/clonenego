@@ -180,7 +180,8 @@ export async function GET(
 
       if (isScriptOrStyle && isInternal) {
         const absoluteVal = val.startsWith('/') ? baseUrl + val : (val.startsWith('http') ? val : baseUrl + '/' + val);
-        const proxied = `${currentOrigin}/api/proxy?url=${encodeURIComponent(absoluteVal)}&overrideHost=${targetHost}`;
+        const timestamp = Date.now();
+        const proxied = `${currentOrigin}/api/proxy?url=${encodeURIComponent(absoluteVal)}&overrideHost=${targetHost}&t=${timestamp}`;
         $(el).attr(attr, proxied);
         $(el).removeAttr('integrity');
         $(el).removeAttr('crossorigin');
