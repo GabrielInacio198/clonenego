@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-/**
- * SnapFunnel Engine v13.0 — DIRECT ULTRA MIRROR
- * Carrega o site original diretamente via Iframe SEM PROXY.
- * Isso ignora todos os bloqueios de servidor e Erros 500.
- */
-export async function GET(req: Request, context: any) {
+export async function GET(_req: Request, context: any) {
   const params = await context.params;
   const id = params?.id;
 
@@ -22,41 +17,89 @@ export async function GET(req: Request, context: any) {
     return new NextResponse('Quiz não encontrado', { status: 404 });
   }
 
-  const replacements = quiz.theme_config?.replacements || {};
-  const checkoutUrl = replacements['__CHECKOUT_URL__'] || '';
+  const title = (quiz.name || 'Funil').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${quiz.name || 'Funil'}</title>
+  <title>${title}</title>
   <style>
-    body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #fff; }
-    iframe { border: none; width: 100%; height: 100%; }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #fff; overflow: hidden; }
+    #funnel-wrap { position: fixed; inset: 0; }
+    #funnel {
+      border: none; width: 100%; height: 100%;
+      opacity: 0;
+      transition: opacity 0.35s ease;
+    }
+    #funnel.ready { opacity: 1; }
+    #loader {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: #fff; z-index: 10;
+      transition: opacity 0.35s ease;
+    }
+    #loader.hidden { opacity: 0; pointer-events: none; }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #eee;
+      border-top-color: #555;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
-  <iframe id="funnel" src="${quiz.original_url}"></iframe>
-  
+  <div id="loader"><div class="spinner"></div></div>
+  <div id="funnel-wrap">
+    <iframe
+      id="funnel"
+      src="/q/${id}/frame"
+      allow="autoplay; fullscreen"
+    ></iframe>
+  </div>
+
   <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>
   <script>
-    (function() {
-      const CHECKOUT = ${JSON.stringify(checkoutUrl)};
-      
-      // Monitorar cliques no iframe (via mensagem se possível ou via detecção de foco)
-      window.focus();
-      window.addEventListener('blur', function() {
-        // Se o usuário clicou no iframe, tentamos agir
-        setTimeout(() => {
-          if (document.activeElement.tagName === 'IFRAME' && CHECKOUT) {
-             console.log("Clique detectado no Funil");
-             // Nota: Não conseguimos forçar o redirect aqui por segurança de cross-origin,
-             // a menos que o site original permita. Mas o carregamento visual está garantido.
-          }
-        }, 100);
-      });
-    })();
+  (function() {
+    var iframe = document.getElementById('funnel');
+    var loader = document.getElementById('loader');
+
+    // Show funnel, hide loader once iframe content loaded
+    iframe.addEventListener('load', function() {
+      iframe.classList.add('ready');
+      loader.classList.add('hidden');
+    });
+
+    // Clean URL on custom domain (wrapper is plain HTML, no Next.js router — safe)
+    var h = window.location.hostname;
+    var isCustom = !h.includes('vercel.app') && !h.includes('localhost');
+    if (isCustom) {
+      try { window.history.replaceState(null, '', '/' + window.location.search); } catch(_) {}
+    }
+
+    // Relay postMessages from frame to editor and intercept SF_CHECKOUT
+    window.addEventListener('message', function(e) {
+      // Checkout redirect from the frame content
+      if (e.data && e.data.type === 'SF_CHECKOUT' && e.data.url) {
+        window.location.href = e.data.url;
+        return;
+      }
+      // Forward SYNC_REPLACEMENTS from editor down into the frame
+      if (e.data && e.data.type === 'SYNC_REPLACEMENTS') {
+        var fw = iframe.contentWindow;
+        if (fw) fw.postMessage(e.data, '*');
+        return;
+      }
+      // Forward EDIT_ELEMENT events from frame up to editor parent
+      if (e.data && e.data.type === 'EDIT_ELEMENT') {
+        if (window.parent !== window) window.parent.postMessage(e.data, '*');
+      }
+    });
+  })();
   </script>
 </body>
 </html>`;
@@ -64,8 +107,9 @@ export async function GET(req: Request, context: any) {
   return new NextResponse(html, {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
+      'Content-Security-Policy': 'frame-ancestors *;',
       'X-Frame-Options': 'ALLOWALL',
-      'Content-Security-Policy': "frame-ancestors *"
-    }
+      'Cache-Control': 'no-store',
+    },
   });
 }
