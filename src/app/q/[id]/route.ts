@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
 /**
- * SnapFunnel Engine v15.0 — GHOST MIRROR (Final Boss)
- * Estabilidade absoluta: Iframe Seguro + Comunicação de Eventos.
- * Resolve o "piscar" e o erro de redirecionamento do Checkout.
+ * SnapFunnel Engine v13.0 (RESTORED) — DIRECT ULTRA MIRROR
+ * Versão de segurança: Carregamento direto via Iframe SEM PROXY.
+ * Garante que o site apareça 100% das vezes sem tela branca.
  */
 export async function GET(req: Request, context: any) {
   const params = await context.params;
@@ -14,14 +14,13 @@ export async function GET(req: Request, context: any) {
 
   const { data: quiz } = await supabaseAdmin
     .from('quizzes')
-    .select('theme_config, name')
+    .select('theme_config, original_url, name')
     .eq('id', id)
     .single();
 
-  if (!quiz) return new NextResponse('Quiz não encontrado', { status: 404 });
-
-  const replacements = quiz.theme_config?.replacements || {};
-  const checkoutUrl = replacements['__CHECKOUT_URL__'] || '';
+  if (!quiz?.original_url) {
+    return new NextResponse('Quiz não encontrado', { status: 404 });
+  }
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -35,26 +34,9 @@ export async function GET(req: Request, context: any) {
   </style>
 </head>
 <body>
-  <iframe id="funnel" src="/api/render/${id}"></iframe>
+  <iframe id="funnel" src="${quiz.original_url}"></iframe>
   
   <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>
-  <script>
-    (function() {
-      const CHECKOUT_FIXO = ${JSON.stringify(checkoutUrl)};
-      const origParams = window.location.search;
-
-      window.addEventListener('message', function(e) {
-        if (e.data && e.data.type === 'SNAP_CHECKOUT') {
-          console.log("SnapFunnel: Checkout detectado! Redirecionando...");
-          // Prioridade para o checkout fixo do painel, senao usa o do botao
-          const finalUrl = CHECKOUT_FIXO || e.data.url;
-          if (finalUrl) {
-            window.top.location.href = finalUrl + (finalUrl.includes('?') ? '&' : '?') + origParams.replace('?', '');
-          }
-        }
-      });
-    })();
-  </script>
 </body>
 </html>`;
 
