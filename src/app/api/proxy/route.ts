@@ -55,13 +55,10 @@ async function handleProxy(req: Request) {
     
     // 1. LIMPEZA DE SEGURANÇA (Anti-Anti-Cloning)
     responseHeaders.set('Access-Control-Allow-Origin', '*');
-    responseHeaders.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    responseHeaders.set('Access-Control-Allow-Headers', '*');
     responseHeaders.delete('content-encoding');
     responseHeaders.delete('content-security-policy');
     responseHeaders.delete('content-security-policy-report-only');
     responseHeaders.delete('x-frame-options');
-    responseHeaders.delete('x-content-type-options');
 
     const contentType = responseHeaders.get('content-type') || '';
     const overrideHost = urlObj.searchParams.get('overrideHost');

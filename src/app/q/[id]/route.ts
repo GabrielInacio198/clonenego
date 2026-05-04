@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import * as cheerio from 'cheerio';
 
-export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
 
   const { data: quiz, error } = await supabaseAdmin
@@ -48,7 +48,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
       <script>window.QUIZ_REPLACEMENTS = ${JSON.stringify(replacements).replace(/</g, '\\u003c')};</script>
       <script id="god-mode-v7">
         console.log("God Mode v7 Ativado - Proxy + Mutation Dictionary (LIVE PROXY)");
-
+        
         // Salvar os parâmetros originais ANTES de limpar a URL
         const __ORIGINAL_SEARCH__ = window.location.search;
         const __ORIGINAL_PARAMS__ = new URLSearchParams(window.location.search);
@@ -93,7 +93,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
 
         function applyReplacements(node) {
           if (!node || window.__IS_APPLYING__) return;
-
+          
           window.__IS_APPLYING__ = true;
           try {
             // 1. Processar estilos customizados
@@ -138,7 +138,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
                 n.childNodes.forEach(walk);
               }
             };
-
+            
             if (node !== null) walk(node);
           } finally {
             window.__IS_APPLYING__ = false;
@@ -147,7 +147,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
 
         const observer = new MutationObserver((mutations) => {
           if (window.__IS_APPLYING__) return;
-
+          
           let hasMeaningfulChange = false;
           mutations.forEach(mutation => {
             if (mutation.type === 'childList') {
@@ -186,10 +186,10 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
         const prepareCheckoutUrl = (customUrl) => {
            let finalUrl = customUrl || window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
            if (!finalUrl) return null;
-
+           
            try {
               const urlObj = new URL(finalUrl);
-
+              
               // 1. Repassar os parâmetros originais da URL (salvos antes do replaceState)
               const paramsToForward = __ORIGINAL_PARAMS__ || new URLSearchParams(window.location.search);
               paramsToForward.forEach((value, key) => {
@@ -226,7 +226,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
           if (finalUrl) {
             if (e && e.preventDefault) e.preventDefault();
             if (e && e.stopPropagation) e.stopPropagation();
-
+            
             console.log("God Mode: Redirecionando para " + finalUrl);
             window.location.href = finalUrl;
             return true;
@@ -243,7 +243,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
           const href = target.getAttribute('href') || '';
           const btnId = target.getAttribute('id') || '';
           const btnClass = target.getAttribute('class') || '';
-
+          
           // Verificar se a URL já é o nosso checkout (decorado ou não)
           const r = window.QUIZ_REPLACEMENTS;
           const checkoutBases = [
@@ -252,7 +252,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
              r['__CHECKOUT_PLAN_2__'],
              r['__CHECKOUT_PLAN_3__']
           ].filter(Boolean).map(u => {
-             try { const obj = new URL(u); return obj.origin + obj.pathname; }
+             try { const obj = new URL(u); return obj.origin + obj.pathname; } 
              catch(err) { return u; }
           });
 
@@ -264,18 +264,18 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
                 isAlreadyOurCheckout = checkoutBases.includes(hrefBase);
              } catch(err) {}
           }
-
+          
           // Verificar se este link/botão específico tem uma substituição individual
-          const specificUrl = (href && window.QUIZ_REPLACEMENTS[href])
-            || (btnId && window.QUIZ_REPLACEMENTS[btnId])
+          const specificUrl = (href && window.QUIZ_REPLACEMENTS[href]) 
+            || (btnId && window.QUIZ_REPLACEMENTS[btnId]) 
             || (btnClass && window.QUIZ_REPLACEMENTS[btnClass])
             || null;
-
+          
           // Se o texto contiver palavras de checkout ou o link for para um checkout conhecido
-          const isCheckoutTrigger =
+          const isCheckoutTrigger = 
             isAlreadyOurCheckout ||
-            text.includes('comprar') ||
-            text.includes('checkout') ||
+            text.includes('comprar') || 
+            text.includes('checkout') || 
             text.includes('receber agora') ||
             text.includes('obter acesso') ||
             text.includes('receber o meu') ||
@@ -283,7 +283,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
             text.includes('quero o plano') ||
             text.includes('quero o plano de') ||
             text.includes('quero o plano anual') ||
-            href.includes('pay.') ||
+            href.includes('pay.') || 
             href.includes('checkout') ||
             href.includes('cakto') ||
             href.includes('kirvano') ||
@@ -292,7 +292,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
           if (isCheckoutTrigger || specificUrl) {
             // Multi-Checkout: tentar identificar qual plano foi clicado pelo texto
             let planUrl = specificUrl;
-
+            
             if (!planUrl) {
               if (isAlreadyOurCheckout) {
                  // Já é o nosso checkout, possivelmente decorado com UTMs pela Utmify. Usar como base!
@@ -341,36 +341,8 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
             });
         }
 
-        // OVERLAY KILLER: Remove divs de loading/overlay que bloqueiam o conteúdo
-        // Sites como inlead.digital usam uma div fixa z-[1000] que nunca é removida se os scripts falham
-        function killOverlays() {
-          const overlays = document.querySelectorAll('div.fixed, div[style*="position: fixed"], div[style*="position:fixed"]');
-          overlays.forEach(el => {
-            const style = window.getComputedStyle(el);
-            const zIndex = parseInt(style.zIndex) || 0;
-            const width = el.offsetWidth;
-            const height = el.offsetHeight;
-            const children = el.children.length;
-            const text = (el.textContent || '').trim();
-            // Se é um overlay: fixo, z-index alto, cobre a tela toda, sem conteúdo visível
-            if (zIndex >= 900 && width >= window.innerWidth * 0.9 && height >= window.innerHeight * 0.9 && children === 0 && text.length === 0) {
-              console.log('God Mode: Overlay Killer ocultou div bloqueante z-index=' + zIndex);
-              el.style.display = 'none';
-              el.style.pointerEvents = 'none';
-              el.style.opacity = '0';
-              el.style.zIndex = '-1';
-            }
-          });
-        }
-        // Executar em intervalos para pegar overlays injetados dinamicamente
-        setTimeout(killOverlays, 2000);
-        setTimeout(killOverlays, 4000);
-        setTimeout(killOverlays, 8000);
-
         document.addEventListener('DOMContentLoaded', () => {
           applyReplacements(document.body);
-          // Também executar overlay killer após DOM pronto
-          setTimeout(killOverlays, 1000);
         });
 
         window.addEventListener('message', (e) => {
@@ -383,7 +355,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
     `;
 
     $('head').prepend(safeGuardV7);
-
+    
     // Injetar o script da Utmify UTMs diretamente no quiz proxeado
     // O layout.tsx só cobre o dashboard, então precisamos injetar aqui também
     $('head').append(`
@@ -398,7 +370,7 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
     if (themeConfig.body_scripts) {
       $('body').append(`\n<!-- INJECTED BODY SCRIPTS -->\n${themeConfig.body_scripts}\n`);
     }
-
+    
     // FIX DE ASSETS Absolutos
     $('[src^="/"]').each((_, el) => {
       const src = $(el).attr('src');
@@ -429,12 +401,11 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
       const content = $(el).html() || '';
       if (src.includes('anti-clone') || content.includes('debugger')) {
         $(el).remove();
-      } else if (src && src.startsWith('/') && !src.startsWith('//')) {
-        // Apenas converter src relativo para absoluto (ex: /js/app.js → https://site.com/js/app.js)
-        $(el).attr('src', baseUrl + src);
+      } else if (src && src.includes('.js')) {
+         // Proxy JS files to replace location.hostname!
+         const absoluteSrc = src.startsWith('/') ? baseUrl + src : src;
+         $(el).attr('src', `/api/proxy?url=${encodeURIComponent(absoluteSrc)}&overrideHost=${encodeURIComponent(baseUrlObj.hostname)}`);
       }
-      // NÃO proxiar JS de CDNs externas (ex: inlead.digital) - deixar o browser carregar direto.
-      // Proxiar todos os JS pelo Vercel dobra a latência e causa rate-limit por CDNs externas.
     });
 
     const finalHtml = $.html();
