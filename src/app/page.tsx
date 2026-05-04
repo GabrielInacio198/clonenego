@@ -21,8 +21,12 @@ export default async function Home() {
     if (quiz) {
       redirect(`/q/${quiz.id}`);
     }
+
+    // Domínio personalizado sem quiz encontrado → redirecionar para dashboard (comportamento original)
+    redirect('/dashboard');
   }
 
-  // Comportamento padrão: Exibir a Landing Page de vendas
+  // Domínio padrão (Vercel/localhost) → Exibir a Landing Page de vendas
   return <LandingPage />;
 }
+
