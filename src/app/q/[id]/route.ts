@@ -341,8 +341,33 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
             });
         }
 
+        // OVERLAY KILLER: Remove divs de loading/overlay que bloqueiam o conteúdo
+        // Sites como inlead.digital usam uma div fixa z-[1000] que nunca é removida se os scripts falham
+        function killOverlays() {
+          const overlays = document.querySelectorAll('div.fixed, div[style*="position: fixed"], div[style*="position:fixed"]');
+          overlays.forEach(el => {
+            const style = window.getComputedStyle(el);
+            const zIndex = parseInt(style.zIndex) || 0;
+            const width = el.offsetWidth;
+            const height = el.offsetHeight;
+            const children = el.children.length;
+            const text = (el.textContent || '').trim();
+            // Se é um overlay: fixo, z-index alto, cobre a tela toda, sem conteúdo visível
+            if (zIndex >= 900 && width >= window.innerWidth * 0.9 && height >= window.innerHeight * 0.9 && children === 0 && text.length === 0) {
+              console.log('God Mode: Overlay Killer removeu div bloqueante z-index=' + zIndex);
+              el.remove();
+            }
+          });
+        }
+        // Executar em intervalos para pegar overlays injetados dinamicamente
+        setTimeout(killOverlays, 2000);
+        setTimeout(killOverlays, 4000);
+        setTimeout(killOverlays, 8000);
+
         document.addEventListener('DOMContentLoaded', () => {
           applyReplacements(document.body);
+          // Também executar overlay killer após DOM pronto
+          setTimeout(killOverlays, 1000);
         });
 
         window.addEventListener('message', (e) => {
