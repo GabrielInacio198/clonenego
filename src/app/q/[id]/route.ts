@@ -44,16 +44,37 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     if (!hasSafeGuard) {
       const safeGuard = `
         <script>window.QUIZ_REPLACEMENTS = ${JSON.stringify(replacements).replace(/</g, '\\u003c')};</script>
-        <script id="god-mode-v7">
+        <script id="god-mode-v8">
           (function() {
-            if (window.__GOD_MODE_V7__) return;
-            window.__GOD_MODE_V7__ = true;
+            if (window.__GOD_MODE_V8__) return;
+            window.__GOD_MODE_V8__ = true;
 
-            var proxyUrl = '/api/proxy?url=';
+            var targetUrl = '${quiz.original_url}';
             var targetBaseUrl = '${baseUrl}';
-            var originalParams = new URLSearchParams(window.location.search);
+            var targetHost = new URL(targetUrl).hostname;
+            var proxyUrl = '/api/proxy?url=';
 
-            try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch(e) {}
+            // 🛑 JAILBREAK: Enganar o roteamento do Next.js/React original
+            const spoof = {
+              get hostname() { return targetHost; },
+              get host() { return targetHost; },
+              get origin() { return new URL(targetUrl).origin; },
+              get href() { return targetUrl; }
+            };
+
+            // Mascarar propriedades críticas para o site não saber que foi clonado
+            try {
+              Object.defineProperty(window.location, 'hostname', { get: () => targetHost });
+              Object.defineProperty(window.location, 'host', { get: () => targetHost });
+              Object.defineProperty(document, 'domain', { get: () => targetHost });
+            } catch(e) { console.warn("Jailbreak parcial aplicado"); }
+
+            // Bloquear tentativas de "Hard Navigate" que quebram o render
+            var _origPushState = window.history.pushState;
+            window.history.pushState = function() { 
+               if (arguments[2] && arguments[2].includes(targetHost)) return;
+               return _origPushState.apply(this, arguments); 
+            };
 
             var _fetch = window.fetch;
             window.fetch = function(res, config) {
