@@ -367,7 +367,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>
 `);
 
-    const themeConfig = quiz.theme_config || {};
+    // Variável themeConfig já definida acima, usando a existente
     if (themeConfig.head_scripts) {
       $('head').append(`\n<!-- INJECTED HEAD SCRIPTS -->\n${themeConfig.head_scripts}\n`);
     }
