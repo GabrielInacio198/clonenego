@@ -6,7 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase';
  * Foco total na visibilidade. Sem proxy, sem reescrita.
  * Garante que o site apareça para o cliente.
  */
-export async function GET(req: Request, context: any) {
+export async function GET(_req: Request, context: any) {
   const params = await context.params;
   const id = params?.id;
 
@@ -59,24 +59,27 @@ export async function GET(req: Request, context: any) {
     (function () {
       var loader = document.getElementById('sf-loader');
       var frame  = document.getElementById('sf-frame');
+      var hideTimer = null;
+      var hidden = false;
 
-      // onload dispara quando o HTML do iframe é parseado.
-      // Sites CSR (como inlead.digital) ainda precisam de tempo para o React renderizar,
-      // então aguardamos 1.8 s antes de revelar o conteúdo — suficiente para a maioria
-      // dos quizzes sem deixar o spinner por tempo demais.
-      frame.addEventListener('load', function () {
-        setTimeout(function () {
-          loader.classList.add('fade-out');
-          // Remove do DOM após a transição para não bloquear eventos
-          setTimeout(function () { loader.style.display = 'none'; }, 450);
-        }, 1800);
-      });
-
-      // Segurança: se por algum motivo onload não disparar em 8 s, remove o loader
-      setTimeout(function () {
+      function hideLoader() {
+        if (hidden) return;
+        hidden = true;
         loader.classList.add('fade-out');
         setTimeout(function () { loader.style.display = 'none'; }, 450);
-      }, 8000);
+      }
+
+      // Debounce: o iframe pode disparar múltiplos onload (React hydration,
+      // roteamento interno, redirects). A cada novo onload reiniciamos o timer.
+      // Só escondemos o overlay 2.5 s após o ÚLTIMO onload — cobre todos os
+      // ciclos de piscar sem deixar o spinner por tempo demais.
+      frame.addEventListener('load', function () {
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(hideLoader, 2500);
+      });
+
+      // Fallback: remove o loader após 12 s independente de qualquer evento
+      setTimeout(hideLoader, 12000);
     })();
   </script>
 </body>
