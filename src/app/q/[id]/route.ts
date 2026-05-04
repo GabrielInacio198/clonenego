@@ -41,27 +41,41 @@ export async function GET(req: Request, context: any) {
     <div id="loading-overlay"><div class="spinner"></div></div>
     <iframe id="funnel-iframe" src="${quiz.original_url}" allow="clipboard-read; clipboard-write; payment"></iframe>
 
+    <!-- Overlay para modo de edição do editor (bloqueia navegação do iframe) -->
+    <div id="sf-edit-overlay" style="position:fixed;inset:0;z-index:10000;display:none;pointer-events:none;cursor:crosshair;background:rgba(59,130,246,0.04);border:2px dashed rgba(59,130,246,0.35);box-sizing:border-box;"></div>
+
     <script>
         const iframe = document.getElementById('funnel-iframe');
         const overlay = document.getElementById('loading-overlay');
+        const editOverlay = document.getElementById('sf-edit-overlay');
         const CHECKOUT = "${checkoutUrl}";
 
-        // Esconder o loading quando o site abrir
-        iframe.onload = () => {
-            setTimeout(() => { overlay.style.opacity = '0'; setTimeout(() => overlay.style.display = 'none', 500); }, 1500);
-        };
+        // Esconder o loading quando o site abrir — debounce 3s para cobrir Cloudflare challenge
+        let hideTimer = null;
+        function hideLoading() {
+            overlay.style.opacity = '0';
+            setTimeout(() => { overlay.style.display = 'none'; }, 500);
+        }
+        iframe.addEventListener('load', () => {
+            clearTimeout(hideTimer);
+            hideTimer = setTimeout(hideLoading, 3000);
+        });
+        setTimeout(hideLoading, 20000); // hard fallback
 
-        // RASTREADOR DE CLIQUE (O Segredo do v25.0)
-        // Como o iframe é cross-origin, não podemos ler o conteúdo, 
-        // MAS podemos detectar o "foco" quando o usuário clica nele!
-        let monitor = setInterval(() => {
-            if (document.activeElement === iframe) {
-                console.log("SnapFunnel: Clique detectado no Iframe!");
-                // Se o clique foi numa área de checkout (estimado por tempo/clique), poderíamos agir.
-                // Mas a solução real é o Iframe Same-Origin que vamos tentar se este falhar.
-                document.activeElement.blur();
-            }
-        }, 500);
+        // Edit mode: recebe SET_MODE do editor pai e ativa/desativa overlay de captura
+        window.addEventListener('message', function(e) {
+            if (!e.data || e.data.type !== 'SET_MODE') return;
+            var active = !!e.data.isEditMode;
+            editOverlay.style.display = active ? 'block' : 'none';
+            editOverlay.style.pointerEvents = active ? 'all' : 'none';
+        });
+
+        // Quando o overlay é clicado, avisa o editor (bloqueia navegação do iframe)
+        editOverlay.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.parent.postMessage({ type: 'IFRAME_CLICK', x: e.clientX, y: e.clientY }, '*');
+        });
     </script>
     <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>
 </body>

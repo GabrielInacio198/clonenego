@@ -42,6 +42,11 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
     try {
       const win = iframeRef.current?.contentWindow;
       const doc = iframeRef.current?.contentDocument;
+
+      // Garantir que o overlay de edição seja ativado após o load
+      if (win) {
+        win.postMessage({ type: 'SET_MODE', isEditMode }, '*');
+      }
       if (win && doc && doc.body) {
         
         // Inicializar variável de controle de modo no iframe
@@ -159,6 +164,18 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
 
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
+      // Clique detectado no iframe cross-origin: abre painel de edição manual
+      if (e.data?.type === 'IFRAME_CLICK') {
+        setEditingText({
+          original: '',
+          current: '',
+          type: 'MANUAL',
+          cssSelector: '',
+          currentStyles: {}
+        });
+        setShowEmojiPicker(false);
+        return;
+      }
       if (e.data?.type === 'EDIT_ELEMENT') {
          const sel = e.data.cssSelector || '';
          const styles = e.data.currentStyles || {};
@@ -196,8 +213,13 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
 
   const applyTextChange = () => {
      if (!editingText) return;
+     // Modo manual: original é digitado pelo usuário — não salvar se vazio
+     if (editingText.type === 'MANUAL' && !editingText.original.trim()) {
+       setEditingText(null);
+       return;
+     }
      const newReplacements = { ...replacements, [editingText.original]: editingText.current };
-     
+
      // Se o texto estiver vazio, remove a substituição
      if (!editingText.current || editingText.current.trim() === '') {
          delete newReplacements[editingText.original];
@@ -453,7 +475,9 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                 <div className="bg-white border-2 border-blue-500 rounded-xl p-4 shadow-sm animate-in fade-in slide-in-from-top-4 overflow-visible relative z-50">
                   <div className="flex justify-between items-center mb-3">
                     <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                      {editingText.type === 'LINK' ? (
+                      {editingText.type === 'MANUAL' ? (
+                        <><Type size={16} className="text-orange-500"/> Substituição Manual</>
+                      ) : editingText.type === 'LINK' ? (
                         <><LinkIcon size={16} className="text-green-500"/> Link Detectado</>
                       ) : editingText.type === 'IMAGE' ? (
                         <><Image size={16} className="text-purple-500"/> Imagem Detectada</>
@@ -465,8 +489,30 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                       <X size={18} />
                     </button>
                   </div>
-                  
-                  {/* Visual Preview / Original Value */}
+
+                  {/* Modo Manual: usuário digita o texto original manualmente */}
+                  {editingText.type === 'MANUAL' && (
+                    <div className="mb-4 p-3 bg-orange-50 rounded-lg border border-orange-200 text-xs text-orange-800">
+                      <strong>Clique detectado!</strong> Como o funil é externo, digite o texto exato que deseja substituir e o novo texto.
+                    </div>
+                  )}
+
+                  {/* Valor Original — editável no modo manual */}
+                  {editingText.type === 'MANUAL' ? (
+                    <div className="mb-4">
+                      <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wider">
+                        Texto a encontrar:
+                      </label>
+                      <input
+                        type="text"
+                        autoFocus
+                        className="w-full px-3 py-2 bg-white border-2 border-orange-200 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-orange-400 outline-none"
+                        placeholder="Digite o texto original do funil..."
+                        value={editingText.original}
+                        onChange={(e) => setEditingText({...editingText, original: e.target.value})}
+                      />
+                    </div>
+                  ) : (
                   <div className="mb-4">
                     <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wider">
                       Valor Original:
@@ -481,6 +527,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                       </div>
                     )}
                   </div>
+                  )}
 
                   {/* Editing Controls */}
                   <div className="space-y-4">
@@ -521,7 +568,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                       <div className="space-y-2 relative">
                         <div className="flex justify-between items-center">
                           <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                            {editingText.type === 'LINK' ? '🔗 Link / Checkout' : '✍️ Editar Texto'}
+                            {editingText.type === 'LINK' ? '🔗 Link / Checkout' : editingText.type === 'MANUAL' ? '✍️ Substituir por:' : '✍️ Editar Texto'}
                           </label>
                           <button 
                             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
