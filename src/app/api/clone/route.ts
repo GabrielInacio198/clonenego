@@ -8,6 +8,8 @@ export async function POST(req: Request) {
     if (!url) return NextResponse.json({ error: 'URL is required' }, { status: 400 });
 
     const validUserId = '69b94a96-14d4-41a8-83a5-71e18ffb6c02';
+    const baseUrlObj = new URL(url);
+    const baseUrl = baseUrlObj.origin;
 
     const response = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
@@ -15,47 +17,37 @@ export async function POST(req: Request) {
 
     let html = await response.text();
     const $ = cheerio.load(html);
-    const baseUrlObj = new URL(url);
-    const baseUrl = baseUrlObj.origin;
 
-    // 🧬 REESCRITA DE DNA DEFINITIVA (Igual ao que funcionava)
+    // 🚀 GOD MODE v7: REESCRITA OBRIGATÓRIA VIA PROXY
     const proxyPrefix = `/api/proxy?overrideHost=${encodeURIComponent(baseUrlObj.hostname)}&url=`;
 
-    // 1. Corrigir links de Styles e Scripts antes de salvar
-    $('link[rel="stylesheet"], script[src], img[src]').each((_, el) => {
+    // 1. Forçar cada recurso a passar pelo Proxy antes de salvar
+    $('script[src], link[rel="stylesheet"], img[src]').each((_, el) => {
       const attr = $(el).attr('src') ? 'src' : 'href';
       let val = $(el).attr(attr);
-      if (val && !val.startsWith('http') && !val.startsWith('//')) {
-        $(el).attr(attr, proxyPrefix + encodeURIComponent(baseUrl + (val.startsWith('/') ? '' : '/') + val));
+      if (val) {
+        let absoluteUrl = val;
+        if (!val.startsWith('http') && !val.startsWith('//')) {
+          absoluteUrl = baseUrl + (val.startsWith('/') ? '' : '/') + val;
+        } else if (val.startsWith('//')) {
+          absoluteUrl = 'https:' + val;
+        }
+        $(el).attr(attr, proxyPrefix + encodeURIComponent(absoluteUrl));
       }
     });
 
-    // 2. Injetar a proteção de Histórico
-    const dnaScript = `
-      <script>
+    // 2. Injetar a "Vacina" de History API
+    const vaccine = `
+      <script id="god-mode-v7-vaccine">
         (function() {
-          // Bloqueia erros de History que causam tela branca
           const n = () => {};
           Object.defineProperty(window.history, 'pushState', { value: n, writable: false });
           Object.defineProperty(window.history, 'replaceState', { value: n, writable: false });
-
-          // Interceptor de Checkout
-          document.addEventListener('click', (e) => {
-            const t = e.target.closest('a, button, [role="button"]');
-            if (!t) return;
-            const h = t.getAttribute('href') || '';
-            const c = window.__USER_CHECKOUT__;
-            if ((h.includes('checkout') || h.includes('pay.') || h.includes('hotmart')) && c) {
-              e.preventDefault();
-              window.location.href = c + window.location.search;
-            }
-          }, true);
         })();
       </script>
     `;
-
+    $('head').prepend(vaccine);
     $('head').prepend(`<base href="${baseUrl}/">`);
-    $('head').prepend(dnaScript);
     
     const pageTitle = $('title').text() || 'Funil Clonado';
 
@@ -66,7 +58,7 @@ export async function POST(req: Request) {
         name: pageTitle,
         original_url: url,
         theme_config: { 
-           isFinalMode: true,
+           isGodModeV7: true,
            rawHtml: $.html(),
            replacements: { "__CHECKOUT_URL__": "" }
         },

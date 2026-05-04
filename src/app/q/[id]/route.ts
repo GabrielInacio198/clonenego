@@ -7,7 +7,6 @@ export async function GET(req: Request, context: any) {
 
   if (!id) return new NextResponse('ID missing', { status: 400 });
 
-  // 1. Pegar os dados do banco (Onde o DNA já está salvo)
   const { data: quiz } = await supabaseAdmin
     .from('quizzes')
     .select('*')
@@ -21,26 +20,34 @@ export async function GET(req: Request, context: any) {
   const replacements = themeConfig.replacements || {};
   const checkoutUrl = replacements['__CHECKOUT_URL__'] || '';
 
-  // Se não tiver HTML salvo (clones muito novos ou antigos sem rawHtml), usa o fallback de iframe
   if (!html) {
-    return new NextResponse(`
-      <iframe src="${quiz.original_url}" style="border:none;width:100%;height:100%;position:fixed;top:0;left:0;"></iframe>
-      <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>
-    `, { headers: { 'Content-Type': 'text/html' } });
+    return new NextResponse(`<iframe src="${quiz.original_url}" style="border:none;width:100%;height:100%;"></iframe>`, { headers: { 'Content-Type': 'text/html' } });
   }
 
-  // 2. Injetar o link de checkout do usuário dinamicamente
-  const finalInjection = `
+  // 🛡️ INJEÇÃO DINÂMICA DE CHECKOUT (God Mode v7)
+  const dynamicInjection = `
     <script>
-      window.__USER_CHECKOUT__ = "${checkoutUrl}";
+      (function() {
+        window.__USER_CHECKOUT__ = "${checkoutUrl}";
+        
+        document.addEventListener('click', (e) => {
+          const t = e.target.closest('a, button, [role="button"]');
+          if (!t) return;
+          const h = t.getAttribute('href') || '';
+          const c = window.__USER_CHECKOUT__;
+          if (c && (h.includes('checkout') || h.includes('pay.') || h.includes('hotmart') || h.includes('cakto'))) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.location.href = c + window.location.search;
+          }
+        }, true);
+      })();
     </script>
     <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>
   `;
 
-  // Colocamos o link de checkout e os scripts no final do head ou início do body
-  html = html.replace('</head>', finalInjection + '</head>');
+  html = html.replace('</head>', dynamicInjection + '</head>');
 
-  // Injetar scripts personalizados de head/body se existirem
   if (themeConfig.head_scripts) html = html.replace('</head>', themeConfig.head_scripts + '</head>');
   if (themeConfig.body_scripts) html = html.replace('</body>', themeConfig.body_scripts + '</body>');
 
