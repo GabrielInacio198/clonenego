@@ -354,8 +354,11 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
             const text = (el.textContent || '').trim();
             // Se é um overlay: fixo, z-index alto, cobre a tela toda, sem conteúdo visível
             if (zIndex >= 900 && width >= window.innerWidth * 0.9 && height >= window.innerHeight * 0.9 && children === 0 && text.length === 0) {
-              console.log('God Mode: Overlay Killer removeu div bloqueante z-index=' + zIndex);
-              el.remove();
+              console.log('God Mode: Overlay Killer ocultou div bloqueante z-index=' + zIndex);
+              el.style.display = 'none';
+              el.style.pointerEvents = 'none';
+              el.style.opacity = '0';
+              el.style.zIndex = '-1';
             }
           });
         }
