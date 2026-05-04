@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import * as cheerio from 'cheerio';
 
 /**
- * SnapFunnel Engine v13.0 (SUPER RESTORE)
- * Foco total na visibilidade. Sem proxy, sem reescrita.
- * Garante que o site apareça para o cliente.
+ * SnapFunnel Engine v21.0 — LEGACY GOD MODE v7 (RESTORED)
+ * A versão definitiva que elimina o piscar e garante o checkout.
+ * Baseada no código original que o usuário confirmou como funcional.
  */
-export async function GET(_req: Request, context: any) {
+export async function GET(req: Request, context: any) {
   const params = await context.params;
   const id = params?.id;
 
@@ -14,87 +15,111 @@ export async function GET(_req: Request, context: any) {
 
   const { data: quiz } = await supabaseAdmin
     .from('quizzes')
-    .select('theme_config, original_url, name')
+    .select('*')
     .eq('id', id)
     .single();
 
-  if (!quiz?.original_url) return new NextResponse('Quiz não encontrado', { status: 404 });
+  if (!quiz) return new NextResponse('Quiz não encontrado', { status: 404 });
 
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${quiz.name || 'Funil'}</title>
-  <style>
-    body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #fff; }
-    iframe { border: none; width: 100%; height: 100%; display: block; }
+  const originalUrl = quiz.original_url;
+  const themeConfig = quiz.theme_config || {};
+  const replacements = themeConfig.replacements || {};
+  const checkoutUrl = replacements['__CHECKOUT_URL__'] || '';
 
-    /* Anti-flicker overlay — cobre o iframe enquanto o React do site original carrega */
-    #sf-loader {
-      position: fixed; inset: 0; z-index: 9999;
-      background: #fff;
-      display: flex; align-items: center; justify-content: center;
-      transition: opacity 0.4s ease;
-    }
-    #sf-loader.fade-out { opacity: 0; pointer-events: none; }
-    .sf-spinner {
-      width: 36px; height: 36px;
-      border: 3px solid #e0e0e0;
-      border-top-color: #888;
-      border-radius: 50%;
-      animation: sf-spin 0.75s linear infinite;
-    }
-    @keyframes sf-spin { to { transform: rotate(360deg); } }
-  </style>
-</head>
-<body>
-  <!-- Overlay cobre o flash branco inicial do CSR -->
-  <div id="sf-loader"><div class="sf-spinner"></div></div>
+  try {
+    const baseUrlObj = new URL(originalUrl);
+    const baseUrl = baseUrlObj.origin;
 
-  <iframe id="sf-frame" src="${quiz.original_url}"></iframe>
+    // 1. Fetch do site original
+    const response = await fetch(originalUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+      },
+    });
 
-  <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>
-  <script>
-    (function () {
-      var loader = document.getElementById('sf-loader');
-      var frame  = document.getElementById('sf-frame');
-      var hideTimer = null;
+    let html = await response.text();
+    const $ = cheerio.load(html);
 
-      function show() {
-        loader.style.display = 'flex';
-        loader.offsetHeight; // força reflow antes de remover fade-out
-        loader.style.opacity = '1';
-        loader.classList.remove('fade-out');
+    // 2. INJEÇÃO DO SCRIPT DE COMUNICAÇÃO GOD MODE v7
+    const safeGuardV7 = `
+      <script>
+        window.QUIZ_REPLACEMENTS = ${JSON.stringify(replacements)};
+        
+        const prepareCheckoutUrl = (base) => {
+          if (!base) return null;
+          try {
+            const url = new URL(base);
+            const currentParams = new URLSearchParams(window.location.search);
+            currentParams.forEach((v, k) => url.searchParams.set(k, v));
+            return url.toString();
+          } catch(e) { return base; }
+        };
+
+        const forceCheckout = (e, url) => {
+          const finalUrl = prepareCheckoutUrl(url || window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__']);
+          if (finalUrl) {
+            if (e && e.preventDefault) e.preventDefault();
+            if (e && e.stopPropagation) e.stopPropagation();
+            window.location.href = finalUrl;
+          }
+        };
+
+        document.addEventListener('click', (e) => {
+          const target = e.target.closest('a, button, [role="button"]');
+          if (!target) return;
+
+          const text = target.textContent?.toLowerCase() || '';
+          const href = target.getAttribute('href') || '';
+          
+          const isCheckoutTrigger = 
+            text.includes('comprar') || text.includes('checkout') || 
+            text.includes('obter acesso') || text.includes('receber') ||
+            href.includes('pay.') || href.includes('checkout') ||
+            href.includes('hotmart') || href.includes('perfectpay') ||
+            href.includes('cakto');
+
+          if (isCheckoutTrigger) {
+            forceCheckout(e);
+          }
+        }, true);
+      </script>
+    `;
+
+    // 3. REESCRITA DE ASSETS (O pulo do gato do God Mode)
+    $('head').prepend(`<base href="${baseUrl}/">`);
+    $('head').append(safeGuardV7);
+    $('head').append(`<script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>`);
+
+    // Injetar scripts customizados do usuário
+    if (themeConfig.head_scripts) $('head').append(themeConfig.head_scripts);
+    if (themeConfig.body_scripts) $('body').append(themeConfig.body_scripts);
+
+    // Limpeza de travas anti-clone
+    $('script').each((_, el) => {
+      const content = $(el).html() || '';
+      const src = $(el).attr('src') || '';
+      if (content.includes('location.hostname') || content.includes('anti-clone') || src.includes('anti-clone')) {
+        $(el).remove();
       }
+    });
 
-      function hide() {
-        loader.classList.add('fade-out');
-        setTimeout(function () { loader.style.display = 'none'; }, 450);
-      }
+    // Registrar visualização
+    supabaseAdmin.from('quiz_views').insert([{ quiz_id: id }]).then(() => {});
 
-      // Debounce puro: a cada onload reinicia o timer de 3 s.
-      // O overlay só desaparece quando ficam 3 s SEM nenhum novo onload.
-      // Isso cobre JS challenges do Cloudflare (3-4 redirects em sequência)
-      // e o multi-render do React CSR — qualquer que seja o número de cargas.
-      frame.addEventListener('load', function () {
-        show();
-        clearTimeout(hideTimer);
-        hideTimer = setTimeout(hide, 3000);
-      });
+    return new NextResponse($.html(), {
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'X-Frame-Options': 'ALLOWALL',
+        'Access-Control-Allow-Origin': '*'
+      },
+    });
 
-      // Hard fallback: remove depois de 20 s independente de tudo
-      setTimeout(hide, 20000);
-    })();
-  </script>
-</body>
-</html>`;
-
-  return new NextResponse(html, {
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'X-Frame-Options': 'ALLOWALL',
-      'Content-Security-Policy': "frame-ancestors *"
-    }
-  });
+  } catch (err: any) {
+    // Fallback: Se o God Mode falhar no fetch, usa o Iframe como última instância
+    return new NextResponse(`
+      <iframe src="${originalUrl}" style="border:none;width:100%;height:100%;position:fixed;top:0;left:0;"></iframe>
+    `, { headers: { 'Content-Type': 'text/html' } });
+  }
 }
