@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
 
 export async function GET(req: Request) {
   return handleProxy(req);
@@ -43,11 +42,12 @@ async function handleProxy(req: Request) {
       method: req.method,
       headers: {
         ...Object.fromEntries(headers),
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': new URL(targetUrl).origin + '/',
         'Origin': new URL(targetUrl).origin,
       },
       body,
-      redirect: 'manual'
+      redirect: 'follow'
     });
 
     const responseBody = await response.arrayBuffer();
@@ -55,10 +55,14 @@ async function handleProxy(req: Request) {
     
     // 1. LIMPEZA DE SEGURANÇA (Anti-Anti-Cloning)
     responseHeaders.set('Access-Control-Allow-Origin', '*');
+    responseHeaders.set('X-Frame-Options', 'ALLOWALL');
     responseHeaders.delete('content-encoding');
     responseHeaders.delete('content-security-policy');
     responseHeaders.delete('content-security-policy-report-only');
     responseHeaders.delete('x-frame-options');
+    responseHeaders.delete('cross-origin-opener-policy');
+    responseHeaders.delete('cross-origin-embedder-policy');
+    responseHeaders.delete('cross-origin-resource-policy');
 
     const contentType = responseHeaders.get('content-type') || '';
     const overrideHost = urlObj.searchParams.get('overrideHost');
