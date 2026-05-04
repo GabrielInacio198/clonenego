@@ -10,21 +10,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
 
-    const { data: adminUsers } = await supabaseAdmin.auth.admin.listUsers();
-    let validUserId: string | undefined = adminUsers?.users[0]?.id;
-
-    if (!validUserId) {
-      const { data: newAuthUser } = await supabaseAdmin.auth.admin.createUser({
-        email: 'admin@quizcloner.com',
-        password: 'password123',
-        email_confirm: true
-      });
-      validUserId = newAuthUser?.user?.id ?? undefined;
-    }
-
-    if (!validUserId) {
-      throw new Error('Não foi possível obter um usuário válido');
-    }
+    // 1. Obter User ID do Valentor (Dono do Projeto)
+    const validUserId = '69b94a96-14d4-41a8-83a5-71e18ffb6c02';
 
     const response = await fetch(url, {
       headers: {
