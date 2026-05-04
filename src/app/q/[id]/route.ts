@@ -60,26 +60,36 @@ export async function GET(_req: Request, context: any) {
       var loader = document.getElementById('sf-loader');
       var frame  = document.getElementById('sf-frame');
       var hideTimer = null;
-      var hidden = false;
+      var loadCount = 0;
 
-      function hideLoader() {
-        if (hidden) return;
-        hidden = true;
+      function show() {
+        clearTimeout(hideTimer);
+        loader.style.display = 'flex';
+        // Força reflow para o fade funcionar corretamente após display:flex
+        loader.offsetHeight;
+        loader.style.opacity = '1';
+        loader.classList.remove('fade-out');
+      }
+
+      function hide() {
         loader.classList.add('fade-out');
         setTimeout(function () { loader.style.display = 'none'; }, 450);
       }
 
-      // Debounce: o iframe pode disparar múltiplos onload (React hydration,
-      // roteamento interno, redirects). A cada novo onload reiniciamos o timer.
-      // Só escondemos o overlay 2.5 s após o ÚLTIMO onload — cobre todos os
-      // ciclos de piscar sem deixar o spinner por tempo demais.
+      // Re-ativa o overlay a CADA onload do iframe.
+      // O quiz navega entre etapas como páginas separadas (URLs diferentes),
+      // então cada passo dispara um novo onload → flash. Ao reativar o overlay
+      // em cada evento cobrimos todos os flashes, não só o inicial.
+      // Primeira carga: 2.5 s (sem cache). Cargas seguintes: 1.2 s (cache quente).
       frame.addEventListener('load', function () {
-        clearTimeout(hideTimer);
-        hideTimer = setTimeout(hideLoader, 2500);
+        loadCount++;
+        show();
+        var delay = loadCount === 1 ? 2500 : 1200;
+        hideTimer = setTimeout(hide, delay);
       });
 
-      // Fallback: remove o loader após 12 s independente de qualquer evento
-      setTimeout(hideLoader, 12000);
+      // Fallback de segurança
+      setTimeout(hide, 15000);
     })();
   </script>
 </body>
