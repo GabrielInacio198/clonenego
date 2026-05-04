@@ -36,20 +36,25 @@ export async function POST(req: Request) {
       }
     });
 
-    // 2. Injetar a "Vacina" de History API
-    const vaccine = `
-      <script id="god-mode-v7-vaccine">
-        (function() {
-          const n = () => {};
-          Object.defineProperty(window.history, 'pushState', { value: n, writable: false });
-          Object.defineProperty(window.history, 'replaceState', { value: n, writable: false });
-        })();
-      </script>
-    `;
-    $('head').prepend(vaccine);
-    $('head').prepend(`<base href="${baseUrl}/">`);
-    
-    const pageTitle = $('title').text() || 'Funil Clonado';
+    // 2. Substituir URLs de checkout reais por placeholder editável
+    let processedHtml = $.html();
+    const checkoutRegex = /https?:\/\/[^"'\s]*(hotmart|perfectpay|cakto|kiwify|doppus|evviva|monetizze|pay\.hotmart)[^"'\s]*/gi;
+    processedHtml = processedHtml.replace(checkoutRegex, '__CHECKOUT_URL__');
+    const $2 = cheerio.load(processedHtml);
+
+    // 3. Injetar a "Vacina" de History API (bloqueia pushState/replaceState)
+    const vaccine = `<script id="god-mode-v7-vaccine">(function(){try{var n=function(){};Object.defineProperty(window.history,'pushState',{value:n,writable:false});Object.defineProperty(window.history,'replaceState',{value:n,writable:false});}catch(e){}})();</script>`;
+    $2('head').prepend(vaccine);
+    $2('head').prepend(`<base href="${baseUrl}/">`);
+
+    // 4. Remover scripts anti-clone do original
+    $2('script').each((_, el) => {
+      const src = $2(el).attr('src') || '';
+      const content = $2(el).html() || '';
+      if (src.includes('anti-clone') || content.includes('anti-clone')) $2(el).remove();
+    });
+
+    const pageTitle = $2('title').text().trim() || 'Funil Clonado';
 
     const { data: quizData, error: quizError } = await supabaseAdmin
       .from('quizzes')
@@ -57,10 +62,10 @@ export async function POST(req: Request) {
         user_id: validUserId,
         name: pageTitle,
         original_url: url,
-        theme_config: { 
+        theme_config: {
            isGodModeV7: true,
-           rawHtml: $.html(),
-           replacements: { "__CHECKOUT_URL__": "" }
+           rawHtml: $2.html(),
+           replacements: { '__CHECKOUT_URL__': '' }
         },
       })
       .select()
