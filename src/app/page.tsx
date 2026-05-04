@@ -1,7 +1,6 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
-import LandingPage from './landing/LandingPage';
 
 export default async function Home() {
   const headersList = await headers();
@@ -21,12 +20,9 @@ export default async function Home() {
     if (quiz) {
       redirect(`/q/${quiz.id}`);
     }
-
-    // Domínio personalizado sem quiz encontrado → redirecionar para dashboard (comportamento original)
-    redirect('/dashboard');
   }
 
-  // Domínio padrão (Vercel/localhost) → Exibir a Landing Page de vendas
-  return <LandingPage />;
+  // Comportamento padrão (redireciona para o login ou dashboard)
+  redirect('/dashboard');
 }
 
