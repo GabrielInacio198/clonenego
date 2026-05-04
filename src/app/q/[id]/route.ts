@@ -25,54 +25,63 @@ export async function GET(req: Request, context: any) {
     const baseUrl = baseUrlObj.origin;
 
     const response = await fetch(originalUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
     });
 
     let html = await response.text();
+    
+    // 🛡️ INJEÇÃO ATÔMICA v7.2 (Antes de tudo, até do <head>)
+    const atomicProtection = `
+<script>
+  (function() {
+    // 1. Congelar o Histórico (Impede a tela branca de SecurityError)
+    const noop = () => {};
+    Object.defineProperty(window.history, 'pushState', { value: noop, writable: false });
+    Object.defineProperty(window.history, 'replaceState', { value: noop, writable: false });
+
+    // 2. Travar a Localização (Impede o site de fugir/redirecionar)
+    try {
+      const mask = {
+        get hostname() { return "${baseUrlObj.hostname}"; },
+        get host() { return "${baseUrlObj.host}"; },
+        get origin() { return "${baseUrlObj.origin}"; },
+        get href() { return window.location.href; }
+      };
+      // Não podemos travar o window.location diretamente, mas enganamos o acesso via script
+      window.__location = mask;
+    } catch(e) {}
+
+    // 3. Interceptar navegação forçada
+    window.onbeforeunload = function() {
+       console.log("SnapFunnel: Bloqueando tentativa de fuga da página.");
+       return "Você tem certeza?"; 
+    };
+  })();
+</script>
+`;
+
+    // Injetar no topo absoluto do HTML
+    html = html.replace('<!DOCTYPE html>', '<!DOCTYPE html>' + atomicProtection);
+    if (!html.includes(atomicProtection)) {
+      html = atomicProtection + html;
+    }
+
     const $ = cheerio.load(html);
 
-    // 🛡️ PROTEÇÃO TOTAL GOD MODE v7.1 (Histórico e Localização)
-    const protectionV71 = `
+    // Configurações Adicionais God Mode
+    $('head').prepend(`<base href="${baseUrl}/">`);
+    $('head').append(`<script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>`);
+    
+    // Script de Checkout
+    const checkoutScript = `
       <script>
-        // 1. Impedir erros de History API (Causa da tela branca no console)
-        const blockHistory = (target) => {
-          const original = target.history.replaceState;
-          target.history.replaceState = function(state, title, url) {
-            if (url && url.toString().includes('http') && !url.toString().includes(window.location.hostname)) {
-              console.log("SnapFunnel: Bloqueando tentativa de mudança de origem para " + url);
-              return; // Bloqueia a mudança para outro domínio
-            }
-            return original.apply(this, arguments);
-          };
-          const originalPush = target.history.pushState;
-          target.history.pushState = function(state, title, url) {
-            if (url && url.toString().includes('http') && !url.toString().includes(window.location.hostname)) {
-              return;
-            }
-            return originalPush.apply(this, arguments);
-          };
-        };
-        blockHistory(window);
-
-        // 2. Enganar a Localização
-        try {
-          Object.defineProperty(window.location, 'hostname', { get: () => "${baseUrlObj.hostname}" });
-          Object.defineProperty(window.location, 'host', { get: () => "${baseUrlObj.host}" });
-          Object.defineProperty(window.location, 'origin', { get: () => "${baseUrlObj.origin}" });
-        } catch(e) {}
-
-        // 3. Interceptor de Checkout
         window.QUIZ_REPLACEMENTS = ${JSON.stringify(replacements)};
         document.addEventListener('click', (e) => {
           const target = e.target.closest('a, button, [role="button"]');
           if (!target) return;
           const href = target.getAttribute('href') || '';
-          const text = target.textContent?.toLowerCase() || '';
           const checkoutUrl = window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
-          
-          if ((href.includes('hotmart') || href.includes('checkout') || text.includes('comprar')) && checkoutUrl) {
+          if ((href.includes('hotmart') || href.includes('checkout') || href.includes('pay.')) && checkoutUrl) {
             e.preventDefault();
             e.stopPropagation();
             window.location.href = checkoutUrl + window.location.search;
@@ -80,18 +89,7 @@ export async function GET(req: Request, context: any) {
         }, true);
       </script>
     `;
-
-    $('head').prepend(`<base href="${baseUrl}/">`);
-    $('head').prepend(protectionV71);
-    $('head').append(`<script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>`);
-
-    if (themeConfig.head_scripts) $('head').append(themeConfig.head_scripts);
-    if (themeConfig.body_scripts) $('body').append(themeConfig.body_scripts);
-
-    // Limpeza de travas
-    $('script').each((_, el) => {
-      if ($(el).html().includes('location.hostname')) $(el).remove();
-    });
+    $('body').append(checkoutScript);
 
     return new NextResponse($.html(), {
       headers: {
