@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
 /**
- * SnapFunnel Engine v13.0 — DIRECT ULTRA MIRROR
- * Carrega o site original diretamente via Iframe SEM PROXY.
- * Isso ignora todos os bloqueios de servidor e Erros 500.
+ * SnapFunnel Engine v15.0 — GHOST MIRROR (Final Boss)
+ * Estabilidade absoluta: Iframe Seguro + Comunicação de Eventos.
+ * Resolve o "piscar" e o erro de redirecionamento do Checkout.
  */
-export async function GET(_req: Request, context: any) {
+export async function GET(req: Request, context: any) {
   const params = await context.params;
   const id = params?.id;
 
@@ -14,13 +14,11 @@ export async function GET(_req: Request, context: any) {
 
   const { data: quiz } = await supabaseAdmin
     .from('quizzes')
-    .select('theme_config, original_url, name')
+    .select('theme_config, name')
     .eq('id', id)
     .single();
 
-  if (!quiz?.original_url) {
-    return new NextResponse('Quiz não encontrado', { status: 404 });
-  }
+  if (!quiz) return new NextResponse('Quiz não encontrado', { status: 404 });
 
   const replacements = quiz.theme_config?.replacements || {};
   const checkoutUrl = replacements['__CHECKOUT_URL__'] || '';
@@ -37,24 +35,23 @@ export async function GET(_req: Request, context: any) {
   </style>
 </head>
 <body>
-  <iframe id="funnel" src="${quiz.original_url}"></iframe>
-
+  <iframe id="funnel" src="/api/render/${id}"></iframe>
+  
   <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>
   <script>
     (function() {
-      const CHECKOUT = ${JSON.stringify(checkoutUrl)};
+      const CHECKOUT_FIXO = ${JSON.stringify(checkoutUrl)};
+      const origParams = window.location.search;
 
-      // Monitorar cliques no iframe (via mensagem se possível ou via detecção de foco)
-      window.focus();
-      window.addEventListener('blur', function() {
-        // Se o usuário clicou no iframe, tentamos agir
-        setTimeout(() => {
-          if (document.activeElement.tagName === 'IFRAME' && CHECKOUT) {
-             console.log("Clique detectado no Funil");
-             // Nota: Não conseguimos forçar o redirect aqui por segurança de cross-origin,
-             // a menos que o site original permita. Mas o carregamento visual está garantido.
+      window.addEventListener('message', function(e) {
+        if (e.data && e.data.type === 'SNAP_CHECKOUT') {
+          console.log("SnapFunnel: Checkout detectado! Redirecionando...");
+          // Prioridade para o checkout fixo do painel, senao usa o do botao
+          const finalUrl = CHECKOUT_FIXO || e.data.url;
+          if (finalUrl) {
+            window.top.location.href = finalUrl + (finalUrl.includes('?') ? '&' : '?') + origParams.replace('?', '');
           }
-        }, 100);
+        }
       });
     })();
   </script>
