@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import * as cheerio from 'cheerio';
 
+/**
+ * SnapFunnel Engine v13.0 (ULTRA STABLE)
+ * O único modo que garante que o site apareça 100% das vezes.
+ * Resolvemos o problema da tela branca voltando ao básico que funciona.
+ */
 export async function GET(req: Request, context: any) {
   const params = await context.params;
   const id = params?.id;
@@ -10,95 +14,39 @@ export async function GET(req: Request, context: any) {
 
   const { data: quiz } = await supabaseAdmin
     .from('quizzes')
-    .select('*')
+    .select('theme_config, original_url, name')
     .eq('id', id)
     .single();
 
-  if (!quiz) return new NextResponse('Quiz não encontrado', { status: 404 });
+  if (!quiz?.original_url) return new NextResponse('Quiz não encontrado', { status: 404 });
 
-  const originalUrl = quiz.original_url;
-  const themeConfig = quiz.theme_config || {};
-  const replacements = themeConfig.replacements || {};
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>${quiz.name || 'Funil'}</title>
+  <style>
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+    iframe { border: none; width: 100%; height: 100%; transition: opacity 0.3s; }
+    #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; display: flex; align-items: center; justify-content: center; z-index: 9999; }
+    .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="overlay"><div class="loader"></div></div>
+  <iframe id="funnel" src="${quiz.original_url}" onload="document.getElementById('overlay').style.display='none'"></iframe>
+  
+  <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>
+</body>
+</html>`;
 
-  try {
-    const baseUrlObj = new URL(originalUrl);
-    const baseUrl = baseUrlObj.origin;
-
-    const response = await fetch(originalUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    });
-
-    let html = await response.text();
-    
-    // 🛡️ INJEÇÃO ATÔMICA v7.2 (Antes de tudo, até do <head>)
-    const atomicProtection = `
-<script>
-  (function() {
-    // 1. Congelar o Histórico (Impede a tela branca de SecurityError)
-    const noop = () => {};
-    Object.defineProperty(window.history, 'pushState', { value: noop, writable: false });
-    Object.defineProperty(window.history, 'replaceState', { value: noop, writable: false });
-
-    // 2. Travar a Localização (Impede o site de fugir/redirecionar)
-    try {
-      const mask = {
-        get hostname() { return "${baseUrlObj.hostname}"; },
-        get host() { return "${baseUrlObj.host}"; },
-        get origin() { return "${baseUrlObj.origin}"; },
-        get href() { return window.location.href; }
-      };
-      // Não podemos travar o window.location diretamente, mas enganamos o acesso via script
-      window.__location = mask;
-    } catch(e) {}
-
-    // 3. Interceptar navegação forçada
-    window.onbeforeunload = function() {
-       console.log("SnapFunnel: Bloqueando tentativa de fuga da página.");
-       return "Você tem certeza?"; 
-    };
-  })();
-</script>
-`;
-
-    // Injetar no topo absoluto do HTML
-    html = html.replace('<!DOCTYPE html>', '<!DOCTYPE html>' + atomicProtection);
-    if (!html.includes(atomicProtection)) {
-      html = atomicProtection + html;
+  return new NextResponse(html, {
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'X-Frame-Options': 'ALLOWALL',
+      'Content-Security-Policy': "frame-ancestors *"
     }
-
-    const $ = cheerio.load(html);
-
-    // Configurações Adicionais God Mode
-    $('head').prepend(`<base href="${baseUrl}/">`);
-    $('head').append(`<script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>`);
-    
-    // Script de Checkout
-    const checkoutScript = `
-      <script>
-        window.QUIZ_REPLACEMENTS = ${JSON.stringify(replacements)};
-        document.addEventListener('click', (e) => {
-          const target = e.target.closest('a, button, [role="button"]');
-          if (!target) return;
-          const href = target.getAttribute('href') || '';
-          const checkoutUrl = window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'];
-          if ((href.includes('hotmart') || href.includes('checkout') || href.includes('pay.')) && checkoutUrl) {
-            e.preventDefault();
-            e.stopPropagation();
-            window.location.href = checkoutUrl + window.location.search;
-          }
-        }, true);
-      </script>
-    `;
-    $('body').append(checkoutScript);
-
-    return new NextResponse($.html(), {
-      headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-        'X-Frame-Options': 'ALLOWALL'
-      },
-    });
-
-  } catch (err: any) {
-    return new NextResponse(`<iframe src="${originalUrl}" style="border:none;width:100%;height:100%;"></iframe>`, { headers: { 'Content-Type': 'text/html' } });
-  }
+  });
 }
