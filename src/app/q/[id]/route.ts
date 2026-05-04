@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import * as cheerio from 'cheerio';
 
-/**
- * SnapFunnel Engine v13.0 (ULTRA STABLE)
- * O único modo que garante que o site apareça 100% das vezes.
- * Resolvemos o problema da tela branca voltando ao básico que funciona.
- */
 export async function GET(req: Request, context: any) {
   const params = await context.params;
   const id = params?.id;
@@ -14,39 +10,97 @@ export async function GET(req: Request, context: any) {
 
   const { data: quiz } = await supabaseAdmin
     .from('quizzes')
-    .select('theme_config, original_url, name')
+    .select('*')
     .eq('id', id)
     .single();
 
-  if (!quiz?.original_url) return new NextResponse('Quiz não encontrado', { status: 404 });
+  if (!quiz) return new NextResponse('Quiz não encontrado', { status: 404 });
 
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>${quiz.name || 'Funil'}</title>
-  <style>
-    body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
-    iframe { border: none; width: 100%; height: 100%; transition: opacity 0.3s; }
-    #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; display: flex; align-items: center; justify-content: center; z-index: 9999; }
-    .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-  </style>
-</head>
-<body>
-  <div id="overlay"><div class="loader"></div></div>
-  <iframe id="funnel" src="${quiz.original_url}" onload="document.getElementById('overlay').style.display='none'"></iframe>
-  
-  <script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>
-</body>
-</html>`;
+  const originalUrl = quiz.original_url;
+  const themeConfig = quiz.theme_config || {};
+  const replacements = themeConfig.replacements || {};
+  const userCheckoutUrl = replacements['__CHECKOUT_URL__'] || '';
 
-  return new NextResponse(html, {
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'X-Frame-Options': 'ALLOWALL',
-      'Content-Security-Policy': "frame-ancestors *"
-    }
-  });
+  try {
+    const baseUrlObj = new URL(originalUrl);
+    const baseUrl = baseUrlObj.origin;
+
+    const response = await fetch(originalUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+    });
+
+    let html = await response.text();
+    const $ = cheerio.load(html);
+
+    // 🛡️ O MOTOR "GOD SANDBOX" v23.0 (Baseado no Seca Jejum)
+    const godSandbox = `
+      <script id="god-mode-v23">
+        (function() {
+          console.log("SnapFunnel God Sandbox v23 Ativado");
+          
+          const proxyUrl = '/api/proxy?overrideHost=${encodeURIComponent(baseUrlObj.hostname)}&url=';
+          const targetBaseUrl = '${baseUrl}';
+
+          // 1. Proxy de FETCH (Cérebro do site)
+          const _origFetch = window.fetch;
+          window.fetch = async function(resource, config) {
+            if (typeof resource === 'string' && (resource.startsWith('/') || resource.includes(targetBaseUrl))) {
+               const absoluteUrl = resource.startsWith('/') ? targetBaseUrl + resource : resource;
+               resource = proxyUrl + encodeURIComponent(absoluteUrl);
+            }
+            return _origFetch.call(this, resource, config);
+          };
+
+          // 2. Proxy de XHR (Corpo do site)
+          const _origOpen = XMLHttpRequest.prototype.open;
+          XMLHttpRequest.prototype.open = function(method, url) {
+            if (typeof url === 'string' && (url.startsWith('/') || url.includes(targetBaseUrl))) {
+               const absoluteUrl = url.startsWith('/') ? targetBaseUrl + url : url;
+               arguments[1] = proxyUrl + encodeURIComponent(absoluteUrl);
+            }
+            return _origOpen.apply(this, arguments);
+          };
+
+          // 3. Neutralizador de Histórico
+          const noop = () => {};
+          window.history.pushState = noop;
+          window.history.replaceState = noop;
+
+          // 4. Interceptor de Checkout
+          const CHECKOUT = ${JSON.stringify(userCheckoutUrl)};
+          document.addEventListener('click', (e) => {
+            const target = e.target.closest('a, button, [role="button"]');
+            if (!target) return;
+            const href = target.getAttribute('href') || '';
+            const text = target.textContent?.toLowerCase() || '';
+            if ((href.includes('hotmart') || href.includes('checkout') || href.includes('pay.')) && CHECKOUT) {
+              e.preventDefault();
+              e.stopPropagation();
+              window.location.href = CHECKOUT + window.location.search;
+            }
+          }, true);
+        })();
+      </script>
+    `;
+
+    $('head').prepend(`<base href="${baseUrl}/">`);
+    $('head').prepend(godSandbox);
+    $('head').append(`<script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>`);
+
+    if (themeConfig.head_scripts) $('head').append(themeConfig.head_scripts);
+    if (themeConfig.body_scripts) $('body').append(themeConfig.body_scripts);
+
+    // Registrar visualização
+    supabaseAdmin.from('quiz_views').insert([{ quiz_id: id }]).then(() => {});
+
+    return new NextResponse($.html(), {
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'X-Frame-Options': 'ALLOWALL'
+      },
+    });
+
+  } catch (err: any) {
+    return new NextResponse(`<iframe src="${originalUrl}" style="border:none;width:100%;height:100%;"></iframe>`, { headers: { 'Content-Type': 'text/html' } });
+  }
 }
