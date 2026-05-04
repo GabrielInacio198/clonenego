@@ -10,25 +10,36 @@ export async function POST(req: Request) {
     const validUserId = '69b94a96-14d4-41a8-83a5-71e18ffb6c02';
 
     const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      }
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
     });
 
     let html = await response.text();
     const $ = cheerio.load(html);
-    const baseUrl = new URL(url).origin;
+    const baseUrlObj = new URL(url);
+    const baseUrl = baseUrlObj.origin;
 
-    // 🧬 INJEÇÃO DO DNA SNAPFUNNEL (Igual ao Seca Jejum)
+    // 🧬 REESCRITA DE DNA DEFINITIVA (Igual ao que funcionava)
+    const proxyPrefix = `/api/proxy?overrideHost=${encodeURIComponent(baseUrlObj.hostname)}&url=`;
+
+    // 1. Corrigir links de Styles e Scripts antes de salvar
+    $('link[rel="stylesheet"], script[src], img[src]').each((_, el) => {
+      const attr = $(el).attr('src') ? 'src' : 'href';
+      let val = $(el).attr(attr);
+      if (val && !val.startsWith('http') && !val.startsWith('//')) {
+        $(el).attr(attr, proxyPrefix + encodeURIComponent(baseUrl + (val.startsWith('/') ? '' : '/') + val));
+      }
+    });
+
+    // 2. Injetar a proteção de Histórico
     const dnaScript = `
-      <script id="snapfunnel-dna">
+      <script>
         (function() {
-          // Bloqueio de erros de History (Tela Branca)
+          // Bloqueia erros de History que causam tela branca
           const n = () => {};
           Object.defineProperty(window.history, 'pushState', { value: n, writable: false });
           Object.defineProperty(window.history, 'replaceState', { value: n, writable: false });
 
-          // Interceptar cliques para o Checkout do usuário
+          // Interceptor de Checkout
           document.addEventListener('click', (e) => {
             const t = e.target.closest('a, button, [role="button"]');
             if (!t) return;
@@ -46,7 +57,6 @@ export async function POST(req: Request) {
     $('head').prepend(`<base href="${baseUrl}/">`);
     $('head').prepend(dnaScript);
     
-    // Captura automática de dados
     const pageTitle = $('title').text() || 'Funil Clonado';
 
     const { data: quizData, error: quizError } = await supabaseAdmin
@@ -56,8 +66,8 @@ export async function POST(req: Request) {
         name: pageTitle,
         original_url: url,
         theme_config: { 
-           isLegacyMode: true,
-           rawHtml: $.html(), // O HTML vai com o DNA injetado!
+           isFinalMode: true,
+           rawHtml: $.html(),
            replacements: { "__CHECKOUT_URL__": "" }
         },
       })
