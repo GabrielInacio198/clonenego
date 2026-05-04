@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
+/**
+ * SnapFunnel Engine v20.0 — INVISIBLE PROXY
+ * A solução definitiva contra o "Branco de CORS".
+ * Reescreve TODOS os assets para passarem pelo nosso proxy, 
+ * enganando totalmente as proteções do site original.
+ */
 export async function GET(req: Request, context: any) {
   const params = await context.params;
   const id = params?.id;
@@ -22,21 +28,32 @@ export async function GET(req: Request, context: any) {
 
   try {
     const baseUrlObj = new URL(originalUrl);
+    const baseOrigin = baseUrlObj.origin;
     let html = savedHtml || '';
 
     if (!html) {
-      return new NextResponse(`
-        <iframe src="${originalUrl}" style="border:none;width:100%;height:100%;position:fixed;top:0;left:0;"></iframe>
-      `, { headers: { 'Content-Type': 'text/html' } });
+      return new NextResponse(`<iframe src="${originalUrl}" style="border:none;width:100%;height:100%;position:fixed;top:0;left:0;"></iframe>`, { headers: { 'Content-Type': 'text/html' } });
     }
 
-    // 🛡️ DNA REPLACEMENT (v19.1)
+    // 1. SUBSTITUIÇÃO DE CHECKOUT
     if (userCheckoutUrl) {
        html = html.split('__CHECKOUT_URL__').join(userCheckoutUrl);
     }
 
+    // 2. REESCRITA DE ASSETS PARA O PROXY (Fim do erro de CORS)
+    // Transforma links relativos e absolutos da origem para passarem pelo nosso /api/proxy
+    const proxyPath = `/api/proxy?overrideHost=${encodeURIComponent(baseUrlObj.hostname)}&url=`;
+    
+    // Reescrever src e href que apontam para a origem
+    html = html.replace(/(src|href)="(\/[^"]*)"/g, (match, attr, path) => {
+        return `${attr}="${proxyPath}${encodeURIComponent(baseOrigin + path)}"`;
+    });
+    
+    html = html.replace(/(src|href)="(https?:\/\/${baseUrlObj.hostname}[^"]*)"/g, (match, attr, url) => {
+        return `${attr}="${proxyPath}${encodeURIComponent(url)}"`;
+    });
+
     const protection = `
-      <base href="${baseUrlObj.origin}/">
       <script>
         try {
           Object.defineProperty(window.location, 'hostname', { get: () => "${baseUrlObj.hostname}" });
@@ -66,7 +83,6 @@ export async function GET(req: Request, context: any) {
       </script>
     `;
 
-    // INJEÇÃO ROBUSTA (Regex garante que funciona mesmo com <HEAD> ou <head class="...">)
     html = html.replace(/<head[^>]*>/i, (match) => match + protection);
     html = html.replace(/<\/body>/i, (match) => controls + match);
 
@@ -80,8 +96,6 @@ export async function GET(req: Request, context: any) {
     });
 
   } catch (err) {
-    return new NextResponse(`
-      <iframe src="${originalUrl}" style="border:none;width:100%;height:100%;position:fixed;top:0;left:0;"></iframe>
-    `, { headers: { 'Content-Type': 'text/html' } });
+    return new NextResponse(`<iframe src="${originalUrl}" style="border:none;width:100%;height:100%;position:fixed;top:0;left:0;"></iframe>`, { headers: { 'Content-Type': 'text/html' } });
   }
 }
