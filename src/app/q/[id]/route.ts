@@ -26,56 +26,70 @@ export async function GET(req: Request, context: any) {
     const baseUrl = baseUrlObj.origin;
 
     const response = await fetch(originalUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html'
+      },
     });
 
     let html = await response.text();
     const $ = cheerio.load(html);
 
-    // 🛡️ O MOTOR "GOD SANDBOX" v23.0 (Baseado no Seca Jejum)
-    const godSandbox = `
-      <script id="god-mode-v23">
+    // 🧬 REESCRITA DE DNA (O Segredo da Visibilidade)
+    const proxyPrefix = `/api/proxy?overrideHost=${encodeURIComponent(baseUrlObj.hostname)}&url=`;
+
+    // 1. Forçar todos os Scripts e Styles a passarem pelo Proxy
+    $('script[src]').each((_, el) => {
+      const src = $(el).attr('src');
+      if (src && !src.startsWith('http') && !src.startsWith('//')) {
+        $(el).attr('src', proxyPrefix + encodeURIComponent(baseUrl + src));
+      } else if (src && src.includes(baseUrlObj.hostname)) {
+        $(el).attr('src', proxyPrefix + encodeURIComponent(src));
+      }
+    });
+
+    $('link[rel="stylesheet"]').each((_, el) => {
+      const href = $(el).attr('href');
+      if (href && !href.startsWith('http') && !href.startsWith('//')) {
+        $(el).attr('href', proxyPrefix + encodeURIComponent(baseUrl + href));
+      }
+    });
+
+    $('img[src]').each((_, el) => {
+      const src = $(el).attr('src');
+      if (src && !src.startsWith('http') && !src.startsWith('//')) {
+        $(el).attr('src', proxyPrefix + encodeURIComponent(baseUrl + src));
+      }
+    });
+
+    // 2. Sandbox de Interceptação (God Mode)
+    const sandbox = `
+      <script>
         (function() {
-          console.log("SnapFunnel God Sandbox v23 Ativado");
+          const proxyUrl = "${proxyPrefix}";
+          const targetBase = "${baseUrl}";
+
+          // Interceptar Fetch para carregar os dados do Quiz original
+          const _f = window.fetch;
+          window.fetch = function(r, c) {
+            if (typeof r === 'string' && (r.startsWith('/') || r.includes(targetBase))) {
+              r = proxyUrl + encodeURIComponent(r.startsWith('/') ? targetBase + r : r);
+            }
+            return _f.call(this, r, c);
+          };
+
+          // Forçar visibilidade (Alguns sites escondem o body se detectam proxy)
+          document.documentElement.style.display = 'block';
+          document.body.style.display = 'block';
           
-          const proxyUrl = '/api/proxy?overrideHost=${encodeURIComponent(baseUrlObj.hostname)}&url=';
-          const targetBaseUrl = '${baseUrl}';
-
-          // 1. Proxy de FETCH (Cérebro do site)
-          const _origFetch = window.fetch;
-          window.fetch = async function(resource, config) {
-            if (typeof resource === 'string' && (resource.startsWith('/') || resource.includes(targetBaseUrl))) {
-               const absoluteUrl = resource.startsWith('/') ? targetBaseUrl + resource : resource;
-               resource = proxyUrl + encodeURIComponent(absoluteUrl);
-            }
-            return _origFetch.call(this, resource, config);
-          };
-
-          // 2. Proxy de XHR (Corpo do site)
-          const _origOpen = XMLHttpRequest.prototype.open;
-          XMLHttpRequest.prototype.open = function(method, url) {
-            if (typeof url === 'string' && (url.startsWith('/') || url.includes(targetBaseUrl))) {
-               const absoluteUrl = url.startsWith('/') ? targetBaseUrl + url : url;
-               arguments[1] = proxyUrl + encodeURIComponent(absoluteUrl);
-            }
-            return _origOpen.apply(this, arguments);
-          };
-
-          // 3. Neutralizador de Histórico
-          const noop = () => {};
-          window.history.pushState = noop;
-          window.history.replaceState = noop;
-
-          // 4. Interceptor de Checkout
-          const CHECKOUT = ${JSON.stringify(userCheckoutUrl)};
+          // Checkout
+          const CHECKOUT = "${userCheckoutUrl}";
           document.addEventListener('click', (e) => {
-            const target = e.target.closest('a, button, [role="button"]');
-            if (!target) return;
-            const href = target.getAttribute('href') || '';
-            const text = target.textContent?.toLowerCase() || '';
-            if ((href.includes('hotmart') || href.includes('checkout') || href.includes('pay.')) && CHECKOUT) {
+            const t = e.target.closest('a, button, [role="button"]');
+            if (!t) return;
+            const h = t.getAttribute('href') || '';
+            if ((h.includes('checkout') || h.includes('pay.') || h.includes('hotmart')) && CHECKOUT) {
               e.preventDefault();
-              e.stopPropagation();
               window.location.href = CHECKOUT + window.location.search;
             }
           }, true);
@@ -84,19 +98,16 @@ export async function GET(req: Request, context: any) {
     `;
 
     $('head').prepend(`<base href="${baseUrl}/">`);
-    $('head').prepend(godSandbox);
+    $('head').prepend(sandbox);
     $('head').append(`<script src="https://cdn.utmify.com.br/scripts/utms/latest.js" async defer></script>`);
 
     if (themeConfig.head_scripts) $('head').append(themeConfig.head_scripts);
     if (themeConfig.body_scripts) $('body').append(themeConfig.body_scripts);
 
-    // Registrar visualização
-    supabaseAdmin.from('quiz_views').insert([{ quiz_id: id }]).then(() => {});
-
     return new NextResponse($.html(), {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
-        'X-Frame-Options': 'ALLOWALL'
+        'Access-Control-Allow-Origin': '*'
       },
     });
 
