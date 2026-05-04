@@ -429,11 +429,12 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
       const content = $(el).html() || '';
       if (src.includes('anti-clone') || content.includes('debugger')) {
         $(el).remove();
-      } else if (src && src.includes('.js')) {
-         // Proxy JS files to replace location.hostname!
-         const absoluteSrc = src.startsWith('/') ? baseUrl + src : src;
-         $(el).attr('src', `/api/proxy?url=${encodeURIComponent(absoluteSrc)}&overrideHost=${encodeURIComponent(baseUrlObj.hostname)}`);
+      } else if (src && src.startsWith('/') && !src.startsWith('//')) {
+        // Apenas converter src relativo para absoluto (ex: /js/app.js → https://site.com/js/app.js)
+        $(el).attr('src', baseUrl + src);
       }
+      // NÃO proxiar JS de CDNs externas (ex: inlead.digital) - deixar o browser carregar direto.
+      // Proxiar todos os JS pelo Vercel dobra a latência e causa rate-limit por CDNs externas.
     });
 
     const finalHtml = $.html();
