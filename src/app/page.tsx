@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
+import LandingPage from './landing/LandingPage';
 
 export default async function Home() {
   const headersList = await headers();
@@ -22,6 +23,6 @@ export default async function Home() {
     }
   }
 
-  // Comportamento padrão (redireciona para o login ou dashboard)
-  redirect('/dashboard');
+  // Comportamento padrão: Exibir a Landing Page de vendas
+  return <LandingPage />;
 }
