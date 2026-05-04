@@ -21,25 +21,29 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
   });
 
   try {
-    // 1. Fetch LIVE HTML from original_url
-    const response = await fetch(quiz.original_url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html'
-      },
-      next: { revalidate: 60 } // Cache por 60 segundos para performance
-    });
+    // 1. Usar HTML do banco de dados (Modo Híbrido Estável)
+    const themeConfig = quiz.theme_config || {};
+    let html = themeConfig.rawHtml;
 
-    if (!response.ok) {
-       throw new Error(`Erro ao buscar o site original: ${response.status}`);
+    // Fallback para LIVE FETCH apenas se o banco estiver vazio
+    if (!html) {
+      const response = await fetch(quiz.original_url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html'
+        }
+      });
+      if (response.ok) {
+        const htmlBuffer = await response.arrayBuffer();
+        const decoder = new TextDecoder('utf-8');
+        html = decoder.decode(htmlBuffer);
+      }
     }
 
-    const htmlBuffer = await response.arrayBuffer();
-    const decoder = new TextDecoder('utf-8');
-    const rawHtml = decoder.decode(htmlBuffer);
+    if (!html) throw new Error("Não foi possível carregar o conteúdo do quiz.");
 
     // 2. Parse and Inject
-    const $ = cheerio.load(rawHtml);
+    const $ = cheerio.load(html);
     const baseUrlObj = new URL(quiz.original_url);
     const baseUrl = `${baseUrlObj.protocol}//${baseUrlObj.host}`;
     const replacements = quiz.theme_config?.replacements || {};
