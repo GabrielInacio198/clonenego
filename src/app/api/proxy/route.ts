@@ -75,11 +75,11 @@ async function handleProxy(req: Request) {
         const hostOnly = overrideHost.split(':')[0];
         const origin = `https://${overrideHost}`;
 
-        // Substituições seguras (não quebram se estiverem dentro de strings)
+        // Substituições seguras (não quebram se estiverem dentro de strings ou acessos de propriedades)
         // O God Mode injeta window.__PROXY_HOST__ na página principal.
-        jsContent = jsContent.replace(/(?:window\.)?location\.hostname/g, `(window.__PROXY_HOST__ || window.location.hostname)`);
-        jsContent = jsContent.replace(/(?:window\.)?location\.host/g, `(window.__PROXY_HOST__ || window.location.host)`);
-        jsContent = jsContent.replace(/(?:window\.)?location\.origin/g, `(window.__PROXY_ORIGIN__ || window.location.origin)`);
+        jsContent = jsContent.replace(/(?<!\.)\b(?:window\.)?location\.hostname\b/g, `(window.__PROXY_HOST__ || window.location.hostname)`);
+        jsContent = jsContent.replace(/(?<!\.)\b(?:window\.)?location\.host\b/g, `(window.__PROXY_HOST__ || window.location.host)`);
+        jsContent = jsContent.replace(/(?<!\.)\b(?:window\.)?location\.origin\b/g, `(window.__PROXY_ORIGIN__ || window.location.origin)`);
 
         return new NextResponse(jsContent, {
             status: response.status,

@@ -66,8 +66,8 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     }
 
     // O rawHtml pode ter o God Mode antigo injetado se veio do banco. Vamos limpá-lo.
-    rawHtml = rawHtml.replace(/<script id="god-mode-v7">[\s\S]*?<\/script>/i, '');
-    rawHtml = rawHtml.replace(/<!-- OVERLAY DE EDIÇÃO SNAPFUNNEL -->[\s\S]*?<\/div>/i, '');
+    rawHtml = rawHtml.replace(/<script id="god-mode-v7">[\s\S]*?<\/script>/gi, '');
+    rawHtml = rawHtml.replace(/<!-- OVERLAY DE EDIÇÃO SNAPFUNNEL -->[\s\S]*?<\/div>/gi, '');
 
     const baseUrlObj = new URL(quiz.original_url);
     const targetHost = encodeURIComponent(baseUrlObj.hostname);
@@ -351,14 +351,14 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     `;
 
     // Inserir as variáveis dinâmicas logo após o <head>
-    rawHtml = rawHtml.replace(/<head[^>]*>/i, (match: string) => match + safeGuardV7_1);
+    rawHtml = rawHtml.replace(/<head[^>]*>/i, (m) => m + safeGuardV7_1);
 
-    // Inserir scripts adicionais (se houver)
+    // Inserir scripts adicionais (se houver) de forma segura
     if (themeConfig.head_scripts) {
-       rawHtml = rawHtml.replace('</head>', `\n<!-- HEAD SCRIPTS -->\n${themeConfig.head_scripts}\n</head>`);
+       rawHtml = rawHtml.replace('</head>', () => `\n<!-- HEAD SCRIPTS -->\n${themeConfig.head_scripts}\n</head>`);
     }
     if (themeConfig.body_scripts) {
-       rawHtml = rawHtml.replace('</body>', `\n<!-- BODY SCRIPTS -->\n${themeConfig.body_scripts}\n</body>`);
+       rawHtml = rawHtml.replace('</body>', () => `\n<!-- BODY SCRIPTS -->\n${themeConfig.body_scripts}\n</body>`);
     }
 
     return new NextResponse(rawHtml, {
