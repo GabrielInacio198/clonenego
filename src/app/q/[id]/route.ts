@@ -45,14 +45,17 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     const replacements = quiz.theme_config?.replacements || {};
 
     const safeGuardV7 = `
+      <!-- OVERLAY DE EDIÇÃO SNAPFUNNEL -->
+      <div id="sf-edit-overlay" style="position:fixed;inset:0;z-index:999999;display:none;pointer-events:none;cursor:crosshair;background:rgba(59,130,246,0.1);border:3px dashed rgba(59,130,246,0.8);box-sizing:border-box;"></div>
+      
       <script>window.QUIZ_REPLACEMENTS = ${JSON.stringify(replacements).replace(/</g, '\\u003c')};</script>
       <script id="god-mode-v7">
         console.log("God Mode v7 Ativado - Proxy + Mutation Dictionary (LIVE PROXY)");
         
-        // Salvar os parâmetros originais ANTES de limpar a URL
-        const __ORIGINAL_SEARCH__ = window.location.search;
-        const __ORIGINAL_PARAMS__ = new URLSearchParams(window.location.search);
-        try { window.history.replaceState(null, '', '/' + window.location.search); } catch(e) {}
+        // VACINA CONTRA TELA BRANCA E FLICKER DO NEXT.JS
+        const n = () => {};
+        try { Object.defineProperty(window.history, 'pushState', { value: n, writable: false }); } catch(e) {}
+        try { Object.defineProperty(window.history, 'replaceState', { value: n, writable: false }); } catch(e) {}
 
         const proxyUrl = '/api/proxy?url=';
         const targetBaseUrl = '${baseUrl}';
@@ -123,8 +126,12 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
                 }
               } else if (n.nodeType === 1) { // Element node
                 if (n.hasAttribute('href')) {
-                   const href = n.getAttribute('href');
-                   if (href && window.QUIZ_REPLACEMENTS[href]) {
+                   let href = n.getAttribute('href');
+                   // SUBTÍTUIÇÃO AGRESSIVA DE CHECKOUT NO DOM
+                   const isCheckout = href.includes('pay.') || href.includes('checkout') || href.includes('cakto') || href.includes('kirvano') || href.includes('perfectpay') || href.includes('kiwify');
+                   if (isCheckout && window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__']) {
+                      n.setAttribute('href', window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__']);
+                   } else if (href && window.QUIZ_REPLACEMENTS[href]) {
                       n.setAttribute('href', window.QUIZ_REPLACEMENTS[href]);
                    }
                 }
@@ -341,14 +348,33 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
             });
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-          applyReplacements(document.body);
-        });
-
         window.addEventListener('message', (e) => {
           if (e.data && e.data.type === 'SYNC_REPLACEMENTS') {
              window.QUIZ_REPLACEMENTS = e.data.replacements;
              applyReplacements(document.body);
+          }
+          // EDITOR SNAPFUNNEL: Ativar/Desativar modo de captura
+          if (e.data && e.data.type === 'SET_MODE') {
+             const overlay = document.getElementById('sf-edit-overlay');
+             if (overlay) {
+                const active = !!e.data.isEditMode;
+                overlay.style.display = active ? 'block' : 'none';
+                overlay.style.pointerEvents = active ? 'all' : 'none';
+             }
+          }
+        });
+
+        // HACK: Ao clicar no overlay do editor, envia as coordenadas para o painel pai
+        document.addEventListener('DOMContentLoaded', () => {
+          applyReplacements(document.body);
+          
+          const overlay = document.getElementById('sf-edit-overlay');
+          if (overlay) {
+             overlay.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.parent.postMessage({ type: 'IFRAME_CLICK', x: e.clientX, y: e.clientY }, '*');
+             });
           }
         });
       </script>
