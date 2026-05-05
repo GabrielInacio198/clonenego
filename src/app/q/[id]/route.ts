@@ -22,10 +22,37 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
   try {
     const themeConfig = quiz.theme_config || {};
-    let rawHtml = themeConfig.rawHtml || '';
+    let rawHtml = '';
     const replacements = themeConfig.replacements || {};
     
-    // Se não houver HTML salvo (funis muito antigos ou erro na clonagem), faz fallback para iframe
+    // FETCH LIVE HTML: Garante que os chunks JS de sites Next.js (SPA) estejam sempre atualizados!
+    try {
+        const response = await fetch(quiz.original_url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            },
+            next: { revalidate: 60 },
+        });
+        
+        if (response.ok) {
+            rawHtml = await response.text();
+            
+            // Opcional: Atualiza o backup no banco em background (se for grande o suficiente)
+            if (rawHtml.length > 500) {
+               supabaseAdmin.from('quizzes').update({
+                  theme_config: { ...themeConfig, rawHtml }
+               }).eq('id', params.id).then();
+            }
+        } else {
+            throw new Error('Status ' + response.status);
+        }
+    } catch (err) {
+        console.error('Falha ao buscar HTML ao vivo, usando fallback do banco:', err);
+        rawHtml = themeConfig.rawHtml || '';
+    }
+    
+    // Se não houver HTML nem ao vivo nem salvo, faz fallback para iframe
     if (!rawHtml) {
         return new NextResponse(`
         <!DOCTYPE html>
@@ -38,7 +65,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         `, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     }
 
-    // O rawHtml salvo no banco pode ou não ter o God Mode antigo. Vamos limpá-lo se tiver para usar o mais novo.
+    // O rawHtml pode ter o God Mode antigo injetado se veio do banco. Vamos limpá-lo.
     rawHtml = rawHtml.replace(/<script id="god-mode-v7">[\s\S]*?<\/script>/i, '');
     rawHtml = rawHtml.replace(/<!-- OVERLAY DE EDIÇÃO SNAPFUNNEL -->[\s\S]*?<\/div>/i, '');
 
@@ -58,7 +85,10 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     const safeGuardV7_1 = `
       <script>window.QUIZ_REPLACEMENTS = ${JSON.stringify(replacements).replace(/</g, '\\u003c')};</script>
       <script id="god-mode-v7">
-        console.log("God Mode v7.3 Ativado - Anti-Crash + Persistência (Fix HTML Head)");
+        console.log("God Mode v7.4 Ativado - Anti-Crash + SPA Live Fetch");
+        
+        window.__PROXY_HOST__ = "${targetHost}";
+        window.__PROXY_ORIGIN__ = "https://${targetHost}";
         
         // VACINA CONTRA TELA BRANCA E FLICKER DO NEXT.JS
         const n = () => {};

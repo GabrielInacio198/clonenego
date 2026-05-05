@@ -75,13 +75,11 @@ async function handleProxy(req: Request) {
         const hostOnly = overrideHost.split(':')[0];
         const origin = `https://${overrideHost}`;
 
-        // Substituições de location para enganar o roteamento interno
-        jsContent = jsContent.replace(/window\.location\.hostname/g, `"${hostOnly}"`);
-        jsContent = jsContent.replace(/location\.hostname/g, `"${hostOnly}"`);
-        jsContent = jsContent.replace(/window\.location\.host/g, `"${overrideHost}"`);
-        jsContent = jsContent.replace(/location\.host/g, `"${overrideHost}"`);
-        jsContent = jsContent.replace(/window\.location\.origin/g, `"${origin}"`);
-        jsContent = jsContent.replace(/location\.origin/g, `"${origin}"`);
+        // Substituições seguras (não quebram se estiverem dentro de strings)
+        // O God Mode injeta window.__PROXY_HOST__ na página principal.
+        jsContent = jsContent.replace(/(?:window\.)?location\.hostname/g, `(window.__PROXY_HOST__ || window.location.hostname)`);
+        jsContent = jsContent.replace(/(?:window\.)?location\.host/g, `(window.__PROXY_HOST__ || window.location.host)`);
+        jsContent = jsContent.replace(/(?:window\.)?location\.origin/g, `(window.__PROXY_ORIGIN__ || window.location.origin)`);
 
         return new NextResponse(jsContent, {
             status: response.status,
