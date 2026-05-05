@@ -81,6 +81,10 @@ async function handleProxy(req: Request) {
         jsContent = jsContent.replace(/(?<!\.)\b(?:window\.)?location\.host\b/g, `(window.__PROXY_HOST__ || window.location.host)`);
         jsContent = jsContent.replace(/(?<!\.)\b(?:window\.)?location\.origin\b/g, `(window.__PROXY_ORIGIN__ || window.location.origin)`);
 
+        responseHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        responseHeaders.set('Pragma', 'no-cache');
+        responseHeaders.set('Expires', '0');
+
         return new NextResponse(jsContent, {
             status: response.status,
             headers: responseHeaders
@@ -120,6 +124,7 @@ async function handleProxy(req: Request) {
     }
 
     // 4. MODO TRANSPARENTE
+    responseHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     return new NextResponse(responseBody, {
       status: response.status,
       headers: responseHeaders
