@@ -307,7 +307,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     `;
 
     // Inserir as variáveis dinâmicas logo após o <head>
-    rawHtml = rawHtml.replace(/<head[^>]*>/i, (match) => match + safeGuardV7_1);
+    rawHtml = rawHtml.replace(/<head[^>]*>/i, (match: string) => match + safeGuardV7_1);
 
     // Inserir scripts adicionais (se houver)
     if (themeConfig.head_scripts) {
