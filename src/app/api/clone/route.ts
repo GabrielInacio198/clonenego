@@ -5,56 +5,183 @@ import * as cheerio from 'cheerio';
 export async function POST(req: Request) {
   try {
     const { url } = await req.json();
-    if (!url) return NextResponse.json({ error: 'URL is required' }, { status: 400 });
 
-    const validUserId = '69b94a96-14d4-41a8-83a5-71e18ffb6c02';
-    const baseUrlObj = new URL(url);
-    const baseUrl = baseUrlObj.origin;
+    if (!url) {
+      return NextResponse.json({ error: 'URL is required' }, { status: 400 });
+    }
+
+    const { data: adminUsers } = await supabaseAdmin.auth.admin.listUsers();
+    let validUserId: string | undefined = adminUsers?.users[0]?.id;
+
+    if (!validUserId) {
+      const { data: newAuthUser } = await supabaseAdmin.auth.admin.createUser({
+        email: 'admin@quizcloner.com',
+        password: 'password123',
+        email_confirm: true
+      });
+      validUserId = newAuthUser?.user?.id ?? undefined;
+    }
+
+    if (!validUserId) {
+      throw new Error('Não foi possível obter um usuário válido');
+    }
 
     const response = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-    });
-
-    let html = await response.text();
-    const $ = cheerio.load(html);
-
-    // 🚀 GOD MODE v7: REESCRITA OBRIGATÓRIA VIA PROXY
-    const proxyPrefix = `/api/proxy?overrideHost=${encodeURIComponent(baseUrlObj.hostname)}&url=`;
-
-    // 1. Forçar cada recurso a passar pelo Proxy antes de salvar
-    $('script[src], link[rel="stylesheet"], img[src]').each((_, el) => {
-      const attr = $(el).attr('src') ? 'src' : 'href';
-      let val = $(el).attr(attr);
-      if (val) {
-        let absoluteUrl = val;
-        if (!val.startsWith('http') && !val.startsWith('//')) {
-          absoluteUrl = baseUrl + (val.startsWith('/') ? '' : '/') + val;
-        } else if (val.startsWith('//')) {
-          absoluteUrl = 'https:' + val;
-        }
-        $(el).attr(attr, proxyPrefix + encodeURIComponent(absoluteUrl));
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
     });
 
-    // 2. Substituir URLs de checkout reais por placeholder editável
-    let processedHtml = $.html();
-    const checkoutRegex = /https?:\/\/[^"'\s]*(hotmart|perfectpay|cakto|kiwify|doppus|evviva|monetizze|pay\.hotmart)[^"'\s]*/gi;
-    processedHtml = processedHtml.replace(checkoutRegex, '__CHECKOUT_URL__');
-    const $2 = cheerio.load(processedHtml);
+    if (!response.ok) {
+      throw new Error(`Erro alvo: ${response.status}`);
+    }
 
-    // 3. Injetar a "Vacina" de History API (bloqueia pushState/replaceState)
-    const vaccine = `<script id="god-mode-v7-vaccine">(function(){try{var n=function(){};Object.defineProperty(window.history,'pushState',{value:n,writable:false});Object.defineProperty(window.history,'replaceState',{value:n,writable:false});}catch(e){}})();</script>`;
-    $2('head').prepend(vaccine);
-    $2('head').prepend(`<base href="${baseUrl}/">`);
+    const htmlBuffer = await response.arrayBuffer();
+    const decoder = new TextDecoder('utf-8');
+    let rawHtml = decoder.decode(htmlBuffer);
 
-    // 4. Remover scripts anti-clone do original
-    $2('script').each((_, el) => {
-      const src = $2(el).attr('src') || '';
-      const content = $2(el).html() || '';
-      if (src.includes('anti-clone') || content.includes('anti-clone')) $2(el).remove();
+    const $ = cheerio.load(rawHtml);
+    const pageTitle = $('title').text() || 'Quiz Clonado';
+    
+    const baseUrlObj = new URL(url);
+    const baseUrl = `${baseUrlObj.protocol}//${baseUrlObj.host}`;
+
+    // PROTEÇÃO NUCLEAR V7 (God Mode): Proxy CORS + Dicionário de Mutação Imortal
+    const safeGuardV7 = `
+      <script id="god-mode-v7">
+        console.log("God Mode v7 Ativado - Proxy + Mutation Dictionary");
+        
+        // HACK 1: Enganar roteamento do Next.js original
+        try { window.history.replaceState(null, '', '/'); } catch(e) {}
+
+        const proxyUrl = '/api/proxy?url=';
+        const targetBaseUrl = '${baseUrl}';
+
+        // HACK 2: Redirecionar Fetch e XHR para o Proxy CORS
+        const _origFetch = window.fetch;
+        window.fetch = async function() {
+          let [resource, config] = arguments;
+          if (typeof resource === 'string') {
+            if (resource.startsWith('/')) {
+              resource = proxyUrl + encodeURIComponent(targetBaseUrl + resource);
+            } else if (resource.startsWith(targetBaseUrl)) {
+              resource = proxyUrl + encodeURIComponent(resource);
+            }
+          } else if (resource instanceof Request) {
+             const urlObj = new URL(resource.url, window.location.origin);
+             if(urlObj.origin === window.location.origin && urlObj.pathname.startsWith('/')) {
+                resource = new Request(proxyUrl + encodeURIComponent(targetBaseUrl + urlObj.pathname + urlObj.search), resource);
+             } else if (urlObj.origin === targetBaseUrl) {
+                resource = new Request(proxyUrl + encodeURIComponent(resource.url), resource);
+             }
+          }
+          return _origFetch.call(this, resource, config);
+        };
+
+        const _origOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function(method, url, async, user, password) {
+          if (typeof url === 'string') {
+            if (url.startsWith('/')) {
+              url = proxyUrl + encodeURIComponent(targetBaseUrl + url);
+            } else if (url.startsWith(targetBaseUrl)) {
+              url = proxyUrl + encodeURIComponent(url);
+            }
+          }
+          return _origOpen.call(this, method, url, async, user, password);
+        };
+
+        // HACK 3: Dicionário de Mutação (Troca os textos na hora que o React tenta renderizar)
+        window.QUIZ_REPLACEMENTS = window.QUIZ_REPLACEMENTS || {};
+
+        function applyReplacements(node) {
+          if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.nodeValue;
+            if (text && text.trim() && window.QUIZ_REPLACEMENTS[text.trim()]) {
+              node.nodeValue = text.replace(text.trim(), window.QUIZ_REPLACEMENTS[text.trim()]);
+            }
+          } else if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.tagName === 'IMG' && node.src) {
+               const origSrc = node.getAttribute('src');
+               for (const [key, value] of Object.entries(window.QUIZ_REPLACEMENTS)) {
+                  if (origSrc === key || node.src.includes(encodeURIComponent(key))) {
+                     node.src = value;
+                     node.srcset = '';
+                     break;
+                  }
+               }
+            }
+            node.childNodes.forEach(applyReplacements);
+          }
+        }
+
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach(mutation => {
+            if (mutation.type === 'childList') {
+              mutation.addedNodes.forEach(node => applyReplacements(node));
+            } else if (mutation.type === 'characterData') {
+              const oldVal = mutation.target.nodeValue;
+              if (oldVal && oldVal.trim() && window.QUIZ_REPLACEMENTS[oldVal.trim()]) {
+                 mutation.target.nodeValue = oldVal.replace(oldVal.trim(), window.QUIZ_REPLACEMENTS[oldVal.trim()]);
+              }
+            }
+          });
+        });
+
+        observer.observe(document.documentElement, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+          applyReplacements(document.body);
+        });
+
+        // Escuta atualizações do Editor Visual do Painel
+        window.addEventListener('message', (e) => {
+          if (e.data && e.data.type === 'SYNC_REPLACEMENTS') {
+             window.QUIZ_REPLACEMENTS = e.data.replacements;
+             applyReplacements(document.body);
+          }
+        });
+      </script>
+    `;
+    $('head').prepend(safeGuardV7);
+
+    // FIX DE ASSETS Absolutos
+    $('[src^="/"]').each((_, el) => {
+      const src = $(el).attr('src');
+      if (src && !src.startsWith('//')) {
+        $(el).attr('src', baseUrl + src);
+      }
+    });
+    $('[href^="/"]').each((_, el) => {
+      const href = $(el).attr('href');
+      if (href && !href.startsWith('//')) {
+        $(el).attr('href', baseUrl + href);
+      }
+    });
+    $('[srcset]').each((_, el) => {
+      let srcset = $(el).attr('srcset');
+      if (srcset) {
+        srcset = srcset.split(',').map(s => {
+          let parts = s.trim().split(' ');
+          if (parts[0].startsWith('/')) parts[0] = baseUrl + parts[0];
+          return parts.join(' ');
+        }).join(', ');
+        $(el).attr('srcset', srcset);
+      }
     });
 
-    const pageTitle = $2('title').text().trim() || 'Funil Clonado';
+    $('script').each((_, el) => {
+      const src = $(el).attr('src') || '';
+      const content = $(el).html() || '';
+      if (src.includes('anti-clone') || content.includes('debugger')) {
+        $(el).remove();
+      }
+    });
+
+    const finalHtml = $.html();
 
     const { data: quizData, error: quizError } = await supabaseAdmin
       .from('quizzes')
@@ -62,20 +189,21 @@ export async function POST(req: Request) {
         user_id: validUserId,
         name: pageTitle,
         original_url: url,
-        theme_config: {
-           isGodModeV7: true,
-           rawHtml: $2.html(),
-           replacements: { '__CHECKOUT_URL__': '' }
-        },
+        theme_config: { rawHtml: finalHtml },
       })
       .select()
       .single();
 
     if (quizError) throw quizError;
 
-    return NextResponse.json({ success: true, quiz: quizData });
+    return NextResponse.json({ 
+      success: true, 
+      quiz: quizData,
+      message: 'Clone Estrutural concluído com sucesso!'
+    });
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Ripper Error:', error);
+    return NextResponse.json({ error: error.message || 'Erro ao ripar o site' }, { status: 500 });
   }
 }
