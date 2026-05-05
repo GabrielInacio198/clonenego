@@ -56,12 +56,9 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     });
     
     const safeGuardV7_1 = `
-      <!-- OVERLAY DE EDIÇÃO SNAPFUNNEL -->
-      <div id="sf-edit-overlay" style="position:fixed;inset:0;z-index:999999;display:none;pointer-events:none;cursor:crosshair;background:rgba(59,130,246,0.1);border:3px dashed rgba(59,130,246,0.8);box-sizing:border-box;"></div>
-      
       <script>window.QUIZ_REPLACEMENTS = ${JSON.stringify(replacements).replace(/</g, '\\u003c')};</script>
       <script id="god-mode-v7">
-        console.log("God Mode v7.2 Ativado - Anti-Crash + Persistência");
+        console.log("God Mode v7.3 Ativado - Anti-Crash + Persistência (Fix HTML Head)");
         
         // VACINA CONTRA TELA BRANCA E FLICKER DO NEXT.JS
         const n = () => {};
@@ -308,13 +305,17 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
         document.addEventListener('DOMContentLoaded', () => {
           applyReplacements(document.body);
-          const overlay = document.getElementById('sf-edit-overlay');
-          if (overlay) {
-             overlay.addEventListener('click', function(e) {
-                e.preventDefault(); e.stopPropagation();
-                window.parent.postMessage({ type: 'IFRAME_CLICK', x: e.clientX, y: e.clientY }, '*');
-             });
-          }
+          
+          // Fix HTML5 Parser: Injecting the div dynamically so it doesn't break <head>
+          const overlay = document.createElement('div');
+          overlay.id = 'sf-edit-overlay';
+          overlay.style.cssText = 'position:fixed;inset:0;z-index:999999;display:none;pointer-events:none;cursor:crosshair;background:rgba(59,130,246,0.1);border:3px dashed rgba(59,130,246,0.8);box-sizing:border-box;';
+          document.body.appendChild(overlay);
+
+          overlay.addEventListener('click', function(e) {
+             e.preventDefault(); e.stopPropagation();
+             window.parent.postMessage({ type: 'IFRAME_CLICK', x: e.clientX, y: e.clientY }, '*');
+          });
         });
       </script>
     `;
