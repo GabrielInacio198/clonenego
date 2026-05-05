@@ -41,6 +41,19 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     // O rawHtml salvo no banco pode ou não ter o God Mode antigo. Vamos limpá-lo se tiver para usar o mais novo.
     rawHtml = rawHtml.replace(/<script id="god-mode-v7">[\s\S]*?<\/script>/i, '');
     rawHtml = rawHtml.replace(/<!-- OVERLAY DE EDIÇÃO SNAPFUNNEL -->[\s\S]*?<\/div>/i, '');
+
+    const baseUrlObj = new URL(quiz.original_url);
+    const targetHost = encodeURIComponent(baseUrlObj.hostname);
+    
+    // FIX DE ASSETS: Passar todos os scripts do site original pelo nosso proxy CORS para burlar bloqueios de Hotlinking
+    rawHtml = rawHtml.replace(/<script([^>]+)src=["']([^"']+\.js)["']([^>]*)>/gi, (match, prefix, src, suffix) => {
+        if (!src.includes('/api/proxy') && !src.includes('utmify')) {
+            const absoluteSrc = src.startsWith('/') ? baseUrlObj.origin + src : src;
+            const proxiedSrc = `/api/proxy?url=${encodeURIComponent(absoluteSrc)}&overrideHost=${targetHost}`;
+            return `<script${prefix}src="${proxiedSrc}"${suffix}>`;
+        }
+        return match;
+    });
     
     const safeGuardV7_1 = `
       <!-- OVERLAY DE EDIÇÃO SNAPFUNNEL -->
