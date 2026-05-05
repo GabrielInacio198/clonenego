@@ -46,7 +46,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     const targetHost = encodeURIComponent(baseUrlObj.hostname);
     
     // FIX DE ASSETS: Passar todos os scripts do site original pelo nosso proxy CORS para burlar bloqueios de Hotlinking
-    rawHtml = rawHtml.replace(/<script([^>]+)src=["']([^"']+\.js)["']([^>]*)>/gi, (match, prefix, src, suffix) => {
+    rawHtml = rawHtml.replace(/<script([^>]+)src=["']([^"']+\.js)["']([^>]*)>/gi, (match: string, prefix: string, src: string, suffix: string) => {
         if (!src.includes('/api/proxy') && !src.includes('utmify')) {
             const absoluteSrc = src.startsWith('/') ? baseUrlObj.origin + src : src;
             const proxiedSrc = `/api/proxy?url=${encodeURIComponent(absoluteSrc)}&overrideHost=${targetHost}`;
