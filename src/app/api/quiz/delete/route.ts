@@ -3,13 +3,21 @@ import { supabaseAdmin } from '@/lib/supabase';
 
 export async function DELETE(req: Request) {
   try {
-    const { quizId } = await req.json();
-    if (!quizId) return NextResponse.json({ error: 'quizId obrigatório' }, { status: 400 });
+    const { quizId, quizIds } = await req.json();
+    
+    if (!quizId && (!quizIds || quizIds.length === 0)) {
+      return NextResponse.json({ error: 'quizId ou quizIds obrigatório' }, { status: 400 });
+    }
 
-    const { error } = await supabaseAdmin
-      .from('quizzes')
-      .delete()
-      .eq('id', quizId);
+    let query = supabaseAdmin.from('quizzes').delete();
+    
+    if (quizIds && quizIds.length > 0) {
+      query = query.in('id', quizIds);
+    } else {
+      query = query.eq('id', quizId);
+    }
+
+    const { error } = await query;
 
     if (error) throw error;
 

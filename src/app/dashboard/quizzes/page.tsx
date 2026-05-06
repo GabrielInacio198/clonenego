@@ -22,6 +22,9 @@ export default function QuizzesList() {
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean, type: 'single' | 'batch', quizId?: string, quizName?: string }>({ isOpen: false, type: 'single' });
+  const [deleteInput, setDeleteInput] = useState('');
 
   const fetchQuizzes = async () => {
     setLoading(true);
@@ -84,23 +87,40 @@ export default function QuizzesList() {
     }
   };
 
-  const handleDelete = async (quizId: string, quizName: string) => {
-    const confirmText = window.prompt(`CUIDADO: Isso vai excluir o funil inteiro ("${quizName}") e todas as configurações, e as pessoas vão parar de acessar imediatamente.\n\nPara confirmar a exclusão, digite a palavra DELETAR abaixo:`);
-    
-    if (confirmText !== 'DELETAR') {
-      if (confirmText !== null) alert('Ação cancelada. A palavra digitada não confere.');
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === quizzes.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(quizzes.map(q => q.id));
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (deleteInput !== 'DELETAR') {
+      alert('A palavra digitada não confere.');
       return;
     }
 
-    setDeletingId(quizId);
+    const isBatch = deleteModal.type === 'batch';
+    const idsToDelete = isBatch ? selectedIds : [deleteModal.quizId!];
+    
+    setDeletingId('deleting');
     try {
       const res = await fetch('/api/quiz/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quizId })
+        body: JSON.stringify({ quizIds: idsToDelete })
       });
       if (!res.ok) throw new Error('Erro ao deletar');
-      setQuizzes(prev => prev.filter(q => q.id !== quizId));
+      
+      setQuizzes(prev => prev.filter(q => !idsToDelete.includes(q.id)));
+      if (isBatch) setSelectedIds([]);
+      setDeleteModal({ isOpen: false, type: 'single' });
+      setDeleteInput('');
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -151,114 +171,205 @@ export default function QuizzesList() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {quizzes.map((quiz) => (
-            <div key={quiz.id} className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm p-5 flex items-center gap-5 hover:border-blue-300 dark:hover:border-blue-600 transition-all">
-              
-              {/* Ícone */}
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shrink-0">
-                <Globe size={22} className="text-blue-600 dark:text-blue-400" />
-              </div>
+        <>
+          {/* Top Actions Bar for Batch */}
+          <div className="flex items-center justify-between mb-4 bg-white dark:bg-slate-800 p-3 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm">
+            <label className="flex items-center gap-3 cursor-pointer pl-2">
+              <input 
+                type="checkbox" 
+                checked={selectedIds.length === quizzes.length && quizzes.length > 0}
+                onChange={toggleSelectAll}
+                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium text-gray-700 dark:text-slate-300">
+                Selecionar Todos ({quizzes.length})
+              </span>
+            </label>
+            
+            {selectedIds.length > 0 && (
+              <button
+                onClick={() => setDeleteModal({ isOpen: true, type: 'batch' })}
+                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 rounded-lg text-sm font-medium transition-colors"
+              >
+                <Trash2 size={16} />
+                Excluir Selecionados ({selectedIds.length})
+              </button>
+            )}
+          </div>
 
-              {/* Infos */}
-              <div className="flex-1 min-w-0">
-                {renamingId === quiz.id ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      autoFocus
-                      type="text"
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleRename(quiz.id)}
-                      className="flex-1 px-3 py-1 border border-blue-300 dark:border-blue-600 rounded-lg text-sm font-semibold text-gray-900 dark:text-white dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                    <button onClick={() => handleRename(quiz.id)} className="p-1 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"><Check size={18} /></button>
-                    <button onClick={() => setRenamingId(null)} className="p-1 text-gray-400 dark:text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-xs">✕</button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 group">
-                    <h3 className="font-semibold text-gray-900 dark:text-white truncate text-base">{quiz.name}</h3>
-                    <button
-                      onClick={() => { setRenamingId(quiz.id); setRenameValue(quiz.name); }}
-                      className="p-1 text-gray-300 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-all"
-                      title="Renomear"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                  </div>
-                )}
-                <p className="text-xs text-gray-400 dark:text-slate-500 truncate mt-0.5">Original: {quiz.original_url}</p>
+          <div className="grid grid-cols-1 gap-4">
+            {quizzes.map((quiz) => (
+              <div key={quiz.id} className={`bg-white dark:bg-slate-800 rounded-xl border ${selectedIds.includes(quiz.id) ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200 dark:border-slate-700'} shadow-sm p-5 flex items-center gap-5 transition-all`}>
                 
-                {/* URL Pública & Acessos */}
-                <div className="flex items-center gap-3 mt-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded border border-transparent dark:border-green-800/30">
-                      {quiz.theme_config?.custom_domain ? '🌐 Domínio Próprio' : '🔗 URL do Sistema'}
-                    </span>
-                    <code className="text-xs text-gray-500 dark:text-slate-400 truncate max-w-sm">
-                      {quiz.theme_config?.custom_domain
-                        ? `https://${quiz.theme_config.custom_domain}`
-                        : `/q/${quiz.id}`}
-                    </code>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-slate-300 bg-gray-50 dark:bg-slate-700 px-2 py-0.5 rounded border border-gray-200 dark:border-slate-600">
-                    <Eye size={14} className="text-blue-500 dark:text-blue-400" />
-                    {quiz.views || 0} acessos
+                <input 
+                  type="checkbox" 
+                  checked={selectedIds.includes(quiz.id)}
+                  onChange={() => toggleSelection(quiz.id)}
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+
+                {/* Ícone */}
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shrink-0">
+                  <Globe size={22} className="text-blue-600 dark:text-blue-400" />
+                </div>
+
+                {/* Infos */}
+                <div className="flex-1 min-w-0">
+                  {renamingId === quiz.id ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleRename(quiz.id)}
+                        className="flex-1 px-3 py-1 border border-blue-300 dark:border-blue-600 rounded-lg text-sm font-semibold text-gray-900 dark:text-white dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                      <button onClick={() => handleRename(quiz.id)} className="p-1 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"><Check size={18} /></button>
+                      <button onClick={() => setRenamingId(null)} className="p-1 text-gray-400 dark:text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-700 rounded text-xs">✕</button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 group">
+                      <h3 className="font-semibold text-gray-900 dark:text-white truncate text-base" onClick={() => toggleSelection(quiz.id)} style={{cursor: 'pointer'}}>{quiz.name}</h3>
+                      <button
+                        onClick={() => { setRenamingId(quiz.id); setRenameValue(quiz.name); }}
+                        className="p-1 text-gray-300 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-all"
+                        title="Renomear"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-400 dark:text-slate-500 truncate mt-0.5">Original: {quiz.original_url}</p>
+                  
+                  {/* URL Pública & Acessos */}
+                  <div className="flex items-center gap-3 mt-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded border border-transparent dark:border-green-800/30">
+                        {quiz.theme_config?.custom_domain ? '🌐 Domínio Próprio' : '🔗 URL do Sistema'}
+                      </span>
+                      <code className="text-xs text-gray-500 dark:text-slate-400 truncate max-w-sm">
+                        {quiz.theme_config?.custom_domain
+                          ? `https://${quiz.theme_config.custom_domain}`
+                          : `/q/${quiz.id}`}
+                      </code>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-slate-300 bg-gray-50 dark:bg-slate-700 px-2 py-0.5 rounded border border-gray-200 dark:border-slate-600">
+                      <Eye size={14} className="text-blue-500 dark:text-blue-400" />
+                      {quiz.views || 0} acessos
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Data */}
-              <div className="text-xs text-gray-400 dark:text-slate-500 text-right shrink-0 hidden md:block">
-                <p>Criado em</p>
-                <p className="font-medium text-gray-600 dark:text-slate-300">{new Date(quiz.created_at).toLocaleDateString('pt-BR')}</p>
-              </div>
+                {/* Data */}
+                <div className="text-xs text-gray-400 dark:text-slate-500 text-right shrink-0 hidden md:block">
+                  <p>Criado em</p>
+                  <p className="font-medium text-gray-600 dark:text-slate-300">{new Date(quiz.created_at).toLocaleDateString('pt-BR')}</p>
+                </div>
 
-              {/* Ações */}
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => copyUrl(quiz)}
-                  title="Copiar URL pública"
-                  className="p-2 text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                >
-                  {copiedId === quiz.id ? <CheckCheck size={18} className="text-green-500" /> : <Copy size={18} />}
-                </button>
-                <a
-                  href={getPublicUrl(quiz)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Abrir quiz"
-                  className="p-2 text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                >
-                  <ExternalLink size={18} />
-                </a>
-                <button
-                  onClick={() => handleDuplicate(quiz.id)}
-                  disabled={duplicatingId === quiz.id}
-                  title="Duplicar este quiz"
-                  className="p-2 text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {duplicatingId === quiz.id ? <Loader2 size={18} className="animate-spin" /> : <CopyPlus size={18} />}
-                </button>
-                <Link
-                  href={`/dashboard/quiz/${quiz.id}`}
-                  title="Editar"
-                  className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg transition-colors"
-                >
-                  <FileEdit size={16} />
-                  Editar
-                </Link>
-                <button
-                  onClick={() => handleDelete(quiz.id, quiz.name)}
-                  disabled={deletingId === quiz.id}
-                  title="Deletar"
-                  className="p-2 text-gray-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {deletingId === quiz.id ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
-                </button>
+                {/* Ações */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => copyUrl(quiz)}
+                    title="Copiar URL pública"
+                    className="p-2 text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                  >
+                    {copiedId === quiz.id ? <CheckCheck size={18} className="text-green-500" /> : <Copy size={18} />}
+                  </button>
+                  <a
+                    href={getPublicUrl(quiz)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Abrir quiz"
+                    className="p-2 text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                  >
+                    <ExternalLink size={18} />
+                  </a>
+                  <button
+                    onClick={() => handleDuplicate(quiz.id)}
+                    disabled={duplicatingId === quiz.id}
+                    title="Duplicar este quiz"
+                    className="p-2 text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {duplicatingId === quiz.id ? <Loader2 size={18} className="animate-spin" /> : <CopyPlus size={18} />}
+                  </button>
+                  <Link
+                    href={`/dashboard/quiz/${quiz.id}`}
+                    title="Editar"
+                    className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg transition-colors"
+                  >
+                    <FileEdit size={16} />
+                    Editar
+                  </Link>
+                  <button
+                    onClick={() => setDeleteModal({ isOpen: true, type: 'single', quizId: quiz.id, quizName: quiz.name })}
+                    disabled={deletingId === quiz.id}
+                    title="Deletar"
+                    className="p-2 text-gray-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {deletingId === quiz.id ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* MODAL DE DELEÇÃO */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 dark:border-slate-700 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-red-500"></div>
+            
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center shrink-0">
+                <AlertCircle size={24} />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                  {deleteModal.type === 'batch' ? 'Excluir Vários Funis' : 'Excluir Funil'}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Ação irreversível.</p>
               </div>
             </div>
-          ))}
+
+            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg mb-6 border border-red-100 dark:border-red-900/50">
+              <p className="text-sm text-red-800 dark:text-red-300 font-medium">
+                CUIDADO: Isso vai excluir {deleteModal.type === 'batch' ? <strong>{selectedIds.length} funis</strong> : <strong>"{deleteModal.quizName}"</strong>}.
+                Todas as configurações serão apagadas e os usuários pararão de acessar imediatamente.
+              </p>
+            </div>
+
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
+              Para confirmar, digite a palavra <strong>DELETAR</strong> abaixo:
+            </label>
+            <input
+              type="text"
+              autoFocus
+              value={deleteInput}
+              onChange={(e) => setDeleteInput(e.target.value)}
+              placeholder="DELETAR"
+              className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all font-mono tracking-widest text-center"
+            />
+
+            <div className="flex items-center gap-3 mt-6">
+              <button
+                onClick={() => { setDeleteModal({ isOpen: false, type: 'single' }); setDeleteInput(''); }}
+                className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-200 font-medium rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleteInput !== 'DELETAR' || deletingId === 'deleting'}
+                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {deletingId === 'deleting' ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                Confirmar Exclusão
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
