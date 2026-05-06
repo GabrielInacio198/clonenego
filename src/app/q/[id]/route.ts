@@ -207,7 +207,10 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
                 if (val && window.QUIZ_REPLACEMENTS[val]) {
                   const newVal = window.QUIZ_REPLACEMENTS[val];
                   if (typeof newVal === 'string' && !newVal.startsWith('__STYLE__::') && !newVal.startsWith('http')) {
-                    n.nodeValue = n.nodeValue.replace(val, newVal);
+                    const finalValue = n.nodeValue.replace(val, newVal);
+                    if (n.nodeValue !== finalValue) {
+                      n.nodeValue = finalValue;
+                    }
                   }
                 }
               } else if (n.nodeType === 1) { 

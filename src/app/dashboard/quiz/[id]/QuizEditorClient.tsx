@@ -230,7 +230,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
 
      // Salvar estilos se existirem alterações
      if (editingText.cssSelector) {
-       const cssString = `background-color:${styleValues.backgroundColor};color:${styleValues.color};border-radius:${styleValues.borderRadius}px`;
+       const cssString = `background-color:${styleValues.backgroundColor} !important;color:${styleValues.color} !important;border-radius:${styleValues.borderRadius}px !important`;
        newReplacements[`__STYLE__::${editingText.cssSelector}`] = cssString;
      }
 
