@@ -252,38 +252,55 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         document.addEventListener('click', (e) => {
           if (window.isEditMode) return; // Impede redirecionamentos quando o modo de edição visual está ativo
 
-          const target = e.target.closest('a, button, [role="button"], div, span');
-          if (!target) return;
-
-          const text = target.textContent?.toLowerCase() || '';
-          const href = target.getAttribute('href') || '';
-          const btnId = target.getAttribute('id') || '';
-          const btnClass = target.getAttribute('class') || '';
-          
           const r = window.QUIZ_REPLACEMENTS;
           const checkoutBases = [r['__CHECKOUT_URL__'], r['__CHECKOUT_PLAN_1__'], r['__CHECKOUT_PLAN_2__'], r['__CHECKOUT_PLAN_3__']].filter(Boolean).map(u => {
              try { const obj = new URL(u); return obj.origin + obj.pathname; } catch(err) { return u; }
           });
 
-          let isAlreadyOurCheckout = false;
-          if (href) {
-             try {
-                const hrefObj = new URL(href, window.location.origin);
-                isAlreadyOurCheckout = checkoutBases.includes(hrefObj.origin + hrefObj.pathname);
-             } catch(err) {}
+          let currentTarget = e.target;
+          let isCheckoutTrigger = false;
+          let specificUrl = null;
+          let matchedText = '';
+          let matchedHref = '';
+          let depth = 0;
+
+          while (currentTarget && currentTarget !== document.body && currentTarget !== document.documentElement && depth < 6) {
+             const text = currentTarget.textContent?.toLowerCase().trim() || '';
+             const href = currentTarget.getAttribute?.('href') || '';
+             const btnId = currentTarget.getAttribute?.('id') || '';
+             const btnClass = currentTarget.getAttribute?.('class') || '';
+
+             let isAlreadyOurCheckout = false;
+             if (href) {
+                try {
+                   const hrefObj = new URL(href, window.location.origin);
+                   isAlreadyOurCheckout = checkoutBases.includes(hrefObj.origin + hrefObj.pathname);
+                } catch(err) {}
+             }
+
+             specificUrl = (href && r[href]) || (btnId && r[btnId]) || (btnClass && r[btnClass]) || null;
+
+             // Somente testa texto se o container for razoavelmente pequeno (evita pegar seções inteiras da página)
+             const hasValidKeywords = text.length > 0 && text.length < 300 && (text.includes('comprar') || text.includes('checkout') || text.includes('receber agora') || text.includes('obter acesso') || text.includes('quero o plano') || text.includes('plano de') || text.includes('plano anual'));
+
+             if (isAlreadyOurCheckout || hasValidKeywords || href.includes('pay.') || href.includes('checkout') || href.includes('cakto') || href.includes('kirvano') || href.includes('perfectpay') || href.includes('kiwify')) {
+                 isCheckoutTrigger = true;
+                 matchedText = text;
+                 matchedHref = href;
+                 break;
+             }
+             
+             currentTarget = currentTarget.parentElement;
+             depth++;
           }
-          
-          const specificUrl = (href && window.QUIZ_REPLACEMENTS[href]) || (btnId && window.QUIZ_REPLACEMENTS[btnId]) || (btnClass && window.QUIZ_REPLACEMENTS[btnClass]) || null;
-          
-          const isCheckoutTrigger = isAlreadyOurCheckout || text.includes('comprar') || text.includes('checkout') || text.includes('receber agora') || text.includes('obter acesso') || text.includes('quero o plano') || text.includes('plano de') || text.includes('plano anual') || href.includes('pay.') || href.includes('checkout') || href.includes('cakto') || href.includes('kirvano') || href.includes('perfectpay') || href.includes('kiwify');
 
           if (isCheckoutTrigger || specificUrl) {
             let planUrl = specificUrl;
             if (!planUrl) {
-              if (isAlreadyOurCheckout) planUrl = href;
-              else if (text.includes('1 m') || text.includes('mensal') || text.includes('plano 1')) planUrl = r['__CHECKOUT_PLAN_1__'];
-              else if (text.includes('3 m') || text.includes('trimestral') || text.includes('plano 2')) planUrl = r['__CHECKOUT_PLAN_2__'];
-              else if (text.includes('anual') || text.includes('12 m') || text.includes('plano 3') || text.includes('6 m')) planUrl = r['__CHECKOUT_PLAN_3__'];
+              if (matchedHref && checkoutBases.some(b => matchedHref.includes(b))) planUrl = matchedHref;
+              else if (matchedText.includes('1 m') || matchedText.includes('mensal') || matchedText.includes('plano 1')) planUrl = r['__CHECKOUT_PLAN_1__'];
+              else if (matchedText.includes('3 m') || matchedText.includes('trimestral') || matchedText.includes('plano 2')) planUrl = r['__CHECKOUT_PLAN_2__'];
+              else if (matchedText.includes('anual') || matchedText.includes('12 m') || matchedText.includes('plano 3') || matchedText.includes('6 m')) planUrl = r['__CHECKOUT_PLAN_3__'];
             }
             forceCheckout(e, planUrl);
           }
@@ -327,28 +344,11 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           }
           if (e.data && e.data.type === 'SET_MODE') {
              window.isEditMode = !!e.data.isEditMode;
-             const overlay = document.getElementById('sf-edit-overlay');
-             if (overlay) {
-                const active = window.isEditMode;
-                overlay.style.display = active ? 'block' : 'none';
-                overlay.style.pointerEvents = 'none'; // Permite cliques nos elementos abaixo para seleção visual
-             }
           }
         });
 
         document.addEventListener('DOMContentLoaded', () => {
           applyReplacements(document.body);
-          
-          // Fix HTML5 Parser: Injecting the div dynamically so it doesn't break <head>
-          const overlay = document.createElement('div');
-          overlay.id = 'sf-edit-overlay';
-          overlay.style.cssText = 'position:fixed;inset:0;z-index:999999;display:none;pointer-events:none;cursor:crosshair;background:rgba(59,130,246,0.1);border:3px dashed rgba(59,130,246,0.8);box-sizing:border-box;';
-          document.body.appendChild(overlay);
-
-          overlay.addEventListener('click', function(e) {
-             e.preventDefault(); e.stopPropagation();
-             window.parent.postMessage({ type: 'IFRAME_CLICK', x: e.clientX, y: e.clientY }, '*');
-          });
         });
       </script>
     `;
