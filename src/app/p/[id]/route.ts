@@ -73,19 +73,34 @@ export async function GET(
           const TARGET_ORIGIN = '${baseUrl}';
           const TARGET_PATH = '${targetPath}';
           const PROXY_URL = '${currentOrigin}/api/proxy?url=';
+          const originalPathname = window.location.pathname;
 
           // 1. DEEP SPOOFING (Enganar Scripts de SPA)
           try {
-            const spoof = (obj, prop, value) => {
-              try { Object.defineProperty(obj, prop, { get: () => value, configurable: true }); } catch(e) {}
-            };
             window.__PROXY_HOST__ = TARGET_HOST;
             window.__PROXY_ORIGIN__ = TARGET_ORIGIN;
+            
+            const spoof = (obj, prop, value) => {
+              try { Object.defineProperty(obj, prop, { get: () => value, configurable: true, enumerable: true }); } catch(e) {}
+            };
+
             spoof(window.location, 'hostname', TARGET_HOST);
             spoof(window.location, 'host', TARGET_HOST);
             spoof(window.location, 'origin', TARGET_ORIGIN);
-            // pathname é crítico para roteadores React/Vite
             spoof(window.location, 'pathname', TARGET_PATH);
+            spoof(window.location, 'href', TARGET_ORIGIN + TARGET_PATH + window.location.search + window.location.hash);
+
+            // Interceptar mudanças de URL via History API
+            const _pushState = history.pushState;
+            const _replaceState = history.replaceState;
+            history.pushState = function() {
+                if (arguments[2] && arguments[2].startsWith('/')) arguments[2] = window.location.origin + originalPathname + arguments[2];
+                return _pushState.apply(this, arguments);
+            };
+            history.replaceState = function() {
+                if (arguments[2] && arguments[2].startsWith('/')) arguments[2] = window.location.origin + originalPathname + arguments[2];
+                return _replaceState.apply(this, arguments);
+            };
           } catch(e) {}
 
           // 2. INTERCEPTOR DE CHECKOUT E ÂNCORAS
@@ -147,7 +162,7 @@ export async function GET(
              document.querySelectorAll('a, button').forEach(patch);
           });
 
-          // 3. PROXY DE NETWORK (Fetch/XHR)
+          // 3. PROXY DE NETWORK (Fetch & XHR)
           const _fetch = window.fetch;
           window.fetch = async function(res, cfg) {
             let url = typeof res === 'string' ? res : (res instanceof Request ? res.url : res);
@@ -158,6 +173,15 @@ export async function GET(
                else res = url;
             }
             return _fetch.call(this, res, cfg);
+          };
+
+          const _open = XMLHttpRequest.prototype.open;
+          XMLHttpRequest.prototype.open = function(method, url) {
+            if (typeof url === 'string' && (url.startsWith('/') || url.includes(TARGET_HOST)) && !url.includes('/api/proxy')) {
+                const fullUrl = url.startsWith('/') ? TARGET_ORIGIN + url : url;
+                url = PROXY_URL + encodeURIComponent(fullUrl) + '&overrideHost=' + TARGET_HOST;
+            }
+            return _open.apply(this, arguments);
           };
         })();
       </script>
