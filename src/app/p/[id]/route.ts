@@ -79,6 +79,8 @@ export async function GET(
             const spoof = (obj, prop, value) => {
               try { Object.defineProperty(obj, prop, { get: () => value, configurable: true }); } catch(e) {}
             };
+            window.__PROXY_HOST__ = TARGET_HOST;
+            window.__PROXY_ORIGIN__ = TARGET_ORIGIN;
             spoof(window.location, 'hostname', TARGET_HOST);
             spoof(window.location, 'host', TARGET_HOST);
             spoof(window.location, 'origin', TARGET_ORIGIN);
