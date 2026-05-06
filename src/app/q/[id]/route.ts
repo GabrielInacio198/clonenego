@@ -90,7 +90,26 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         window.__PROXY_HOST__ = "${targetHost}";
         window.__PROXY_ORIGIN__ = "https://${targetHost}";
         
-        // VACINA CONTRA TELA BRANCA E FLICKER DO NEXT.JS
+        // TRUQUE DE HIDRATAÇÃO PARA SPAs (Next.js, React, etc.)
+        // O Next.js lê window.location.pathname no boot. Se não bater com a rota original, ele dá tela branca (404) ou erro.
+        const origReplaceState = window.history.replaceState;
+        const origPushState = window.history.pushState;
+        
+        const originalUrlObj = new URL('${quiz.original_url}');
+        const currentPath = window.location.pathname;
+        const currentSearch = window.location.search;
+        
+        if (currentPath !== originalUrlObj.pathname) {
+           // 1. Muda a URL na barra para a original antes do framework carregar
+           origReplaceState.call(window.history, null, '', originalUrlObj.pathname + currentSearch);
+           
+           // 2. Restaura a URL correta após o framework terminar de hidratar (1.5s após o load)
+           const restoreUrl = () => origReplaceState.call(window.history, null, '', currentPath + currentSearch);
+           window.addEventListener('load', () => setTimeout(restoreUrl, 1500));
+           setTimeout(restoreUrl, 4000); // Fallback garantido
+        }
+        
+        // VACINA CONTRA TELA BRANCA E FLICKER DO NEXT.JS (Bloqueia o Next de mudar a URL sozinho depois)
         const n = () => {};
         try { Object.defineProperty(window.history, 'pushState', { value: n, writable: false }); } catch(e) {}
         try { Object.defineProperty(window.history, 'replaceState', { value: n, writable: false }); } catch(e) {}
