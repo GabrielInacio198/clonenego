@@ -149,6 +149,36 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           return _origOpen.call(this, method, url, async, user, password);
         };
 
+        // INTERCEPTAR SCRIPTS/LINKS DINÂMICOS DO WEBPACK/NEXT.JS
+        const origCreateElement = document.createElement;
+        document.createElement = function(tagName) {
+           const el = origCreateElement.call(document, tagName);
+           const lowerTag = tagName.toLowerCase();
+           if (lowerTag === 'script' || lowerTag === 'link') {
+              const origSetAttribute = el.setAttribute;
+              el.setAttribute = function(name, value) {
+                 if ((name === 'src' || name === 'href') && value) {
+                    if (value.startsWith('/')) value = proxyUrl + encodeURIComponent(targetBaseUrl + value);
+                    else if (value.startsWith(targetBaseUrl)) value = proxyUrl + encodeURIComponent(value);
+                 }
+                 return origSetAttribute.call(this, name, value);
+              };
+              const prop = lowerTag === 'link' ? 'href' : 'src';
+              Object.defineProperty(el, prop, {
+                 set: function(val) {
+                    if (val && typeof val === 'string') {
+                       if (val.startsWith('/')) val = proxyUrl + encodeURIComponent(targetBaseUrl + val);
+                       else if (val.startsWith(targetBaseUrl)) val = proxyUrl + encodeURIComponent(val);
+                    }
+                    origSetAttribute.call(this, prop, val);
+                 },
+                 get: function() { return this.getAttribute(prop); }
+              });
+           }
+           return el;
+        };
+
+
         window.__IS_APPLYING__ = false;
 
         function applyReplacements(node) {
