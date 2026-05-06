@@ -250,6 +250,8 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         };
 
         document.addEventListener('click', (e) => {
+          if (window.isEditMode) return; // Impede redirecionamentos quando o modo de edição visual está ativo
+
           const target = e.target.closest('a, button, [role="button"], div, span');
           if (!target) return;
 
@@ -273,15 +275,15 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           
           const specificUrl = (href && window.QUIZ_REPLACEMENTS[href]) || (btnId && window.QUIZ_REPLACEMENTS[btnId]) || (btnClass && window.QUIZ_REPLACEMENTS[btnClass]) || null;
           
-          const isCheckoutTrigger = isAlreadyOurCheckout || text.includes('comprar') || text.includes('checkout') || text.includes('receber agora') || text.includes('obter acesso') || text.includes('quero o plano') || href.includes('pay.') || href.includes('checkout') || href.includes('cakto') || href.includes('kirvano') || href.includes('perfectpay') || href.includes('kiwify');
+          const isCheckoutTrigger = isAlreadyOurCheckout || text.includes('comprar') || text.includes('checkout') || text.includes('receber agora') || text.includes('obter acesso') || text.includes('quero o plano') || text.includes('plano de') || text.includes('plano anual') || href.includes('pay.') || href.includes('checkout') || href.includes('cakto') || href.includes('kirvano') || href.includes('perfectpay') || href.includes('kiwify');
 
           if (isCheckoutTrigger || specificUrl) {
             let planUrl = specificUrl;
             if (!planUrl) {
               if (isAlreadyOurCheckout) planUrl = href;
-              else if (text.includes('1 m') || text.includes('mensal')) planUrl = r['__CHECKOUT_PLAN_1__'];
-              else if (text.includes('3 m') || text.includes('trimestral')) planUrl = r['__CHECKOUT_PLAN_2__'];
-              else if (text.includes('anual') || text.includes('12 m')) planUrl = r['__CHECKOUT_PLAN_3__'];
+              else if (text.includes('1 m') || text.includes('mensal') || text.includes('plano 1')) planUrl = r['__CHECKOUT_PLAN_1__'];
+              else if (text.includes('3 m') || text.includes('trimestral') || text.includes('plano 2')) planUrl = r['__CHECKOUT_PLAN_2__'];
+              else if (text.includes('anual') || text.includes('12 m') || text.includes('plano 3') || text.includes('6 m')) planUrl = r['__CHECKOUT_PLAN_3__'];
             }
             forceCheckout(e, planUrl);
           }
@@ -324,11 +326,12 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
              applyReplacements(document.body);
           }
           if (e.data && e.data.type === 'SET_MODE') {
+             window.isEditMode = !!e.data.isEditMode;
              const overlay = document.getElementById('sf-edit-overlay');
              if (overlay) {
-                const active = !!e.data.isEditMode;
+                const active = window.isEditMode;
                 overlay.style.display = active ? 'block' : 'none';
-                overlay.style.pointerEvents = active ? 'all' : 'none';
+                overlay.style.pointerEvents = 'none'; // Permite cliques nos elementos abaixo para seleção visual
              }
           }
         });
