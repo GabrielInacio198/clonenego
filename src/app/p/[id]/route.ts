@@ -67,7 +67,7 @@ export async function GET(
     const engineScript = `
       <script id="snapfunnel-engine-v7">
         (function() {
-          console.log("SnapFunnel Engine v7.2 - God Mode Ultra Active");
+          console.log("SnapFunnel Engine v7.3 - God Mode Stable");
           const CHECKOUT_URL = '${checkoutUrl}';
           const TARGET_HOST = '${targetHost}';
           const TARGET_ORIGIN = '${baseUrl}';
@@ -79,27 +79,26 @@ export async function GET(
           try {
             window.__PROXY_HOST__ = TARGET_HOST;
             window.__PROXY_ORIGIN__ = TARGET_ORIGIN;
-            window.__PROXY_PATH__ = TARGET_PATH;
-            window.__PROXY_HREF__ = TARGET_ORIGIN + TARGET_PATH + window.location.search + window.location.hash;
             
             const spoof = (obj, prop, value) => {
-              try { Object.defineProperty(obj, prop, { get: () => value, configurable: true, enumerable: true }); } catch(e) {}
+              try {
+                const originalDescriptor = Object.getOwnPropertyDescriptor(obj, prop);
+                Object.defineProperty(obj, prop, {
+                  get: () => value,
+                  set: (v) => { 
+                    if (originalDescriptor && originalDescriptor.set) originalDescriptor.set.call(obj, v);
+                    else obj[prop] = v;
+                  },
+                  configurable: true,
+                  enumerable: true
+                });
+              } catch(e) { console.error("Spoof error:", e); }
             };
 
             spoof(window.location, 'hostname', TARGET_HOST);
             spoof(window.location, 'host', TARGET_HOST);
             spoof(window.location, 'origin', TARGET_ORIGIN);
             spoof(window.location, 'pathname', TARGET_PATH);
-            spoof(window.location, 'href', window.__PROXY_HREF__);
-
-            // Interceptar construtor de URL (Comum em Vite/React)
-            const _URL = window.URL;
-            window.URL = function(url, base) {
-                if (url === window.location.href) url = window.__PROXY_HREF__;
-                return new _URL(url, base);
-            };
-            window.URL.prototype = _URL.prototype;
-            for(var k in _URL) { if(_URL.hasOwnProperty(k)) window.URL[k] = _URL[k]; }
 
             // Interceptar mudanças de URL via History API
             const _pushState = history.pushState;
