@@ -125,9 +125,11 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
             borderRadius: computed?.borderRadius
           };
 
-          // Se for botão ou link, tratamos como LINK para permitir checkout
-          if (target.tagName === 'A' || target.tagName === 'BUTTON' || target.getAttribute('role') === 'button' || target.classList.contains('btn')) {
-             originalValue = target.getAttribute('href') || target.textContent?.trim() || 'Botão sem link';
+          const href = target.getAttribute('href');
+          const isButtonOrLink = target.tagName === 'A' || target.tagName === 'BUTTON' || target.getAttribute('role') === 'button' || target.classList.contains('btn') || target.classList.contains('button');
+          
+          if (isButtonOrLink && href && href !== '#' && !href.startsWith('javascript:')) {
+             originalValue = href;
              type = 'LINK';
           } 
           else if (target.tagName === 'IMG') {
@@ -136,7 +138,8 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
           } 
           else {
             let textNode = Array.from(target.childNodes).find((n: any) => n.nodeType === 3 && n.nodeValue?.trim() !== '');
-            originalValue = textNode ? (textNode as any).nodeValue.trim() : target.textContent.trim();
+            originalValue = textNode ? (textNode as any).nodeValue.trim() : target.textContent?.trim() || '';
+            type = 'TEXT';
           }
 
           if (originalValue) {
