@@ -80,6 +80,8 @@ async function handleProxy(req: Request) {
         jsContent = jsContent.replace(/(?<!\.)\b(?:window\.)?location\.hostname\b/g, `(window.__PROXY_HOST__ || window.location.hostname)`);
         jsContent = jsContent.replace(/(?<!\.)\b(?:window\.)?location\.host\b/g, `(window.__PROXY_HOST__ || window.location.host)`);
         jsContent = jsContent.replace(/(?<!\.)\b(?:window\.)?location\.origin\b/g, `(window.__PROXY_ORIGIN__ || window.location.origin)`);
+        jsContent = jsContent.replace(/(?<!\.)\b(?:window\.)?location\.pathname\b/g, `(window.__PROXY_PATH__ || window.location.pathname)`);
+        jsContent = jsContent.replace(/(?<!\.)\b(?:window\.)?location\.href\b/g, `(window.__PROXY_HREF__ || window.location.href)`);
 
         responseHeaders.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         responseHeaders.set('Pragma', 'no-cache');
