@@ -84,6 +84,7 @@ export async function GET(
           const TARGET_ORIGIN = '${baseUrl}';
           const TARGET_PATH = '${targetPath}';
           const PROXY_URL = '${currentOrigin}/api/proxy?url=';
+          const originalPathname = window.location.pathname;
 
           // 1. DEEP SPOOFING (Enganar Scripts de SPA)
           try {
@@ -106,6 +107,18 @@ export async function GET(
             spoof(window.location, 'host', TARGET_HOST);
             spoof(window.location, 'origin', TARGET_ORIGIN);
             spoof(window.location, 'pathname', TARGET_PATH);
+
+            // Trava de Histórico (Mantém o site dentro do proxy /p/[id])
+            const _pushState = history.pushState;
+            const _replaceState = history.replaceState;
+            history.pushState = function(state, title, url) {
+                if (url && url.startsWith('/') && !url.startsWith('/p/')) url = originalPathname.split('?')[0] + url;
+                return _pushState.apply(this, [state, title, url]);
+            };
+            history.replaceState = function(state, title, url) {
+                if (url && url.startsWith('/') && !url.startsWith('/p/')) url = originalPathname.split('?')[0] + url;
+                return _replaceState.apply(this, [state, title, url]);
+            };
           } catch(e) {}
 
           // 2. INTERCEPTOR DE CHECKOUT E ÂNCORAS
