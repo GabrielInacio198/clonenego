@@ -3,13 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import * as cheerio from 'cheerio';
 
 /**
- * Page Proxy God Mode v7.0 — Ultra-Compatible (SPA & Lovable Ready)
- * 
- * Estratégia:
- * 1. Proxy total de Scripts e Styles (internos e externos) para bypass de CORS.
- * 2. Spoofing profundo de window.location (origin, host, hostname, pathname).
- * 3. Interceptação de injeção dinâmica de scripts (Vite/Webpack compatible).
- * 4. Preservação de integridade visual com <base> tag.
+ * Page Proxy God Mode v7.0 — Pure Stable
  */
 
 export async function GET(
@@ -20,24 +14,13 @@ export async function GET(
     const { id } = await params;
 
     // 1. Buscar página
-    let { data: page, error } = await supabaseAdmin
+    const { data: page, error } = await supabaseAdmin
       .from('cloned_pages')
       .select('*')
       .eq('id', id)
       .single();
 
-    // Fallback para sub-rotas de SPA (ex: /p/resultado)
-    if (error || !page) {
-      const { data: fallback } = await supabaseAdmin
-        .from('cloned_pages')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      page = fallback;
-    }
-
-    if (!page || !page.original_url) {
+    if (error || !page || !page.original_url) {
       return new NextResponse('<h1>Página não encontrada</h1>', { status: 404 });
     }
 
@@ -49,7 +32,6 @@ export async function GET(
     const response = await fetch(originalUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
       },
       next: { revalidate: 0 },
     });
@@ -73,30 +55,26 @@ export async function GET(
     $('head').prepend(`<base href="${originalUrl}">`);
 
     // ═══════════════════════════════════════════════
-    // 2. ENGINE SNAPFUNNEL v7.0 (SPA Compatibility)
+    // 2. ENGINE SNAPFUNNEL v7.0 (Pure Stable)
     // ═══════════════════════════════════════════════
     const engineScript = `
       <script id="snapfunnel-engine-v7">
         (function() {
-          console.log("SnapFunnel Engine v7.0 - God Mode Stable");
+          console.log("SnapFunnel Engine v7.0 - Pure Stable");
           const CHECKOUT_URL = '${checkoutUrl}';
           const TARGET_HOST = '${targetHost}';
           const TARGET_ORIGIN = '${baseUrl}';
           const TARGET_PATH = '${targetPath}';
           const PROXY_URL = '${currentOrigin}/api/proxy?url=';
-          const originalPathname = window.location.pathname;
 
-          // 1. DEEP SPOOFING (Enganar Scripts de SPA)
+          // 1. SPOOFING ESTÁVEL
           try {
             const spoof = (obj, prop, value) => {
               try { 
-                const originalDescriptor = Object.getOwnPropertyDescriptor(obj, prop);
+                const desc = Object.getOwnPropertyDescriptor(obj, prop);
                 Object.defineProperty(obj, prop, { 
-                  get: () => value, 
-                  set: (v) => {
-                    if (originalDescriptor && originalDescriptor.set) originalDescriptor.set.call(obj, v);
-                    else obj[prop] = v;
-                  },
+                  get: () => value,
+                  set: (v) => { if (desc && desc.set) desc.set.call(obj, v); else obj[prop] = v; },
                   configurable: true 
                 }); 
               } catch(e) {}
@@ -107,39 +85,14 @@ export async function GET(
             spoof(window.location, 'host', TARGET_HOST);
             spoof(window.location, 'origin', TARGET_ORIGIN);
             spoof(window.location, 'pathname', TARGET_PATH);
-
-            // Trava de Histórico (Mantém o site dentro do proxy /p/[id])
-            const _pushState = history.pushState;
-            const _replaceState = history.replaceState;
-            history.pushState = function(state, title, url) {
-                if (url && url.startsWith('/') && !url.startsWith('/p/')) url = originalPathname.split('?')[0] + url;
-                return _pushState.apply(this, [state, title, url]);
-            };
-            history.replaceState = function(state, title, url) {
-                if (url && url.startsWith('/') && !url.startsWith('/p/')) url = originalPathname.split('?')[0] + url;
-                return _replaceState.apply(this, [state, title, url]);
-            };
           } catch(e) {}
 
-          // 2. INTERCEPTOR DE CHECKOUT E ÂNCORAS
+          // 2. INTERCEPTOR DE CHECKOUT
           const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper', 'lowify', 'ironpay'];
           
           function patch(el) {
             if (el.tagName === 'A') {
-              const hrefAttr = el.getAttribute('href') || '';
-              const href = hrefAttr.toLowerCase();
-
-              if (hrefAttr.startsWith('#')) {
-                el.addEventListener('click', (e) => {
-                  e.preventDefault(); e.stopPropagation();
-                  try {
-                    const target = document.querySelector(hrefAttr);
-                    if (target) target.scrollIntoView({ behavior: 'smooth' });
-                  } catch(err) {}
-                }, true);
-                return;
-              }
-
+              const href = (el.getAttribute('href') || '').toLowerCase();
               if (CHECKOUT_URL && (gateways.some(g => href.includes(g)) || el.dataset.checkout)) {
                 el.href = CHECKOUT_URL;
                 el.addEventListener('click', (e) => {
@@ -158,8 +111,8 @@ export async function GET(
               patch(n); 
               n.querySelectorAll('a, button').forEach(patch);
               if (n.tagName === 'SCRIPT' && n.src && !n.src.includes('/api/proxy')) {
-                const originalSrc = n.src;
-                n.src = PROXY_URL + encodeURIComponent(originalSrc) + '&overrideHost=' + TARGET_HOST;
+                const src = n.src;
+                n.src = PROXY_URL + encodeURIComponent(src) + '&overrideHost=' + TARGET_HOST;
               }
             }
           })));
@@ -169,7 +122,7 @@ export async function GET(
              document.querySelectorAll('a, button').forEach(patch);
           });
 
-          // 3. PROXY DE NETWORK (Fetch & XHR)
+          // 3. PROXY DE NETWORK (Fetch)
           const _fetch = window.fetch;
           window.fetch = async function(res, cfg) {
             let url = typeof res === 'string' ? res : (res instanceof Request ? res.url : res);
@@ -181,23 +134,12 @@ export async function GET(
             }
             return _fetch.call(this, res, cfg);
           };
-
-          const _open = XMLHttpRequest.prototype.open;
-          XMLHttpRequest.prototype.open = function(method, url) {
-            if (typeof url === 'string' && (url.startsWith('/') || url.includes(TARGET_HOST)) && !url.includes('/api/proxy')) {
-                const fullUrl = url.startsWith('/') ? TARGET_ORIGIN + url : url;
-                url = PROXY_URL + encodeURIComponent(fullUrl) + '&overrideHost=' + TARGET_HOST;
-            }
-            return _open.apply(this, arguments);
-          };
         })();
       </script>
     `;
     $('head').prepend(engineScript);
 
-    // ═══════════════════════════════════════════════
-    // 3. REESCRITA DE ASSETS (Proxy Agressivo)
-    // ═══════════════════════════════════════════════
+    // 3. REESCRITA DE ASSETS
     const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper'];
     
     $('[src], [href]').each((_, el) => {
@@ -207,32 +149,22 @@ export async function GET(
       
       if (!val || val.startsWith('data:') || val.startsWith('javascript:')) return;
 
-      // 1. Âncoras (Físico)
-      if (val.startsWith('#')) {
-        $(el).attr(attr, `javascript:document.querySelector('${val}')?.scrollIntoView({behavior:'smooth'})`);
-        return;
-      }
-
-      // 2. Checkout (Físico)
       if (tag === 'A' && checkoutUrl && gateways.some(g => val.toLowerCase().includes(g))) {
         $(el).attr(attr, checkoutUrl);
         return;
       }
 
-      // 3. PROXY TOTAL (Scripts e Estilos) - Resolve SPA e CORS
       const isScriptOrStyle = tag === 'SCRIPT' || (tag === 'LINK' && $(el).attr('rel') === 'stylesheet');
 
       if (isScriptOrStyle) {
         const absoluteVal = val.startsWith('/') ? baseUrl + val : (val.startsWith('http') ? val : baseUrl + '/' + val);
-        const timestamp = Date.now();
-        const proxied = `${currentOrigin}/api/proxy?url=${encodeURIComponent(absoluteVal)}&overrideHost=${targetHost}&t=${timestamp}`;
+        const proxied = `${currentOrigin}/api/proxy?url=${encodeURIComponent(absoluteVal)}&overrideHost=${targetHost}`;
         $(el).attr(attr, proxied);
         $(el).removeAttr('integrity');
         $(el).removeAttr('crossorigin');
       }
     });
 
-    // Injetar Pixels e Scripts Customizados
     if (config.pixel_script) $('body').append(`<div id="sf-pixel" style="display:none !important">${config.pixel_script}</div>`);
     if (config.head_scripts) $('head').append(config.head_scripts);
     if (config.body_scripts) $('body').append(config.body_scripts);
