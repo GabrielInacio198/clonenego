@@ -67,55 +67,27 @@ export async function GET(
     const engineScript = `
       <script id="snapfunnel-engine-v7">
         (function() {
-          console.log("SnapFunnel Engine v7.5 - God Mode Superior");
+          console.log("SnapFunnel Engine v7.0 - God Mode Stable");
           const CHECKOUT_URL = '${checkoutUrl}';
           const TARGET_HOST = '${targetHost}';
           const TARGET_ORIGIN = '${baseUrl}';
           const TARGET_PATH = '${targetPath}';
           const PROXY_URL = '${currentOrigin}/api/proxy?url=';
-          const originalPathname = window.location.pathname;
 
-          // 1. NEUTRALIZAR TRACKERS (Utmify e outros)
-          window.utmifyConfig = { disabled: true };
-          window.utmify = { init: () => {}, track: () => {} };
-
-          // 2. DEEP SPOOFING (Enganar Scripts de SPA)
+          // 1. DEEP SPOOFING (Enganar Scripts de SPA)
           try {
+            const spoof = (obj, prop, value) => {
+              try { Object.defineProperty(obj, prop, { get: () => value, configurable: true }); } catch(e) {}
+            };
             window.__PROXY_HOST__ = TARGET_HOST;
             window.__PROXY_ORIGIN__ = TARGET_ORIGIN;
-            
-            const spoof = (obj, prop, value) => {
-              try {
-                Object.defineProperty(obj, prop, {
-                  get: () => value,
-                  set: (v) => { /* Bloqueia sobrescrita de segurança */ },
-                  configurable: true,
-                  enumerable: true
-                });
-              } catch(e) {}
-            };
-
             spoof(window.location, 'hostname', TARGET_HOST);
             spoof(window.location, 'host', TARGET_HOST);
             spoof(window.location, 'origin', TARGET_ORIGIN);
             spoof(window.location, 'pathname', TARGET_PATH);
-            spoof(document, 'domain', TARGET_HOST);
-            spoof(document, 'referrer', TARGET_ORIGIN + '/');
-
-            // Interceptar mudanças de URL via History API
-            const _pushState = history.pushState;
-            const _replaceState = history.replaceState;
-            history.pushState = function() {
-                if (arguments[2] && arguments[2].startsWith('/')) arguments[2] = window.location.origin + originalPathname + arguments[2];
-                return _pushState.apply(this, arguments);
-            };
-            history.replaceState = function() {
-                if (arguments[2] && arguments[2].startsWith('/')) arguments[2] = window.location.origin + originalPathname + arguments[2];
-                return _replaceState.apply(this, arguments);
-            };
           } catch(e) {}
 
-          // 3. INTERCEPTOR DE CHECKOUT E ÂNCORAS
+          // 2. INTERCEPTOR DE CHECKOUT E ÂNCORAS
           const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper', 'lowify', 'ironpay'];
           
           function patch(el) {
@@ -125,7 +97,7 @@ export async function GET(
 
               if (hrefAttr.startsWith('#')) {
                 el.addEventListener('click', (e) => {
-                  e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+                  e.preventDefault(); e.stopPropagation();
                   try {
                     const target = document.querySelector(hrefAttr);
                     if (target) target.scrollIntoView({ behavior: 'smooth' });
@@ -135,24 +107,13 @@ export async function GET(
               }
 
               if (CHECKOUT_URL && (gateways.some(g => href.includes(g)) || el.dataset.checkout)) {
-                // Blindagem do Href
-                Object.defineProperty(el, 'href', {
-                  get: () => CHECKOUT_URL,
-                  set: () => {},
-                  configurable: true
-                });
-                el.setAttribute('href', CHECKOUT_URL);
-                
-                // Listener de captura (executa antes de qualquer outro script do site)
+                el.href = CHECKOUT_URL;
                 el.addEventListener('click', (e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  e.stopImmediatePropagation(); // MATA O UTMIFY E OUTROS SCRIPTS
-                  
+                  e.preventDefault(); e.stopPropagation();
                   const u = new URL(CHECKOUT_URL);
                   const p = new URLSearchParams(window.location.search);
                   ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','src','sck'].forEach(k => { if (p.get(k)) u.searchParams.set(k, p.get(k)); });
-                  window.top.location.href = u.toString();
+                  window.location.href = u.toString();
                 }, true);
               }
             }
