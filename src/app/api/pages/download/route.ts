@@ -4,14 +4,7 @@ import * as cheerio from 'cheerio';
 import JSZip from 'jszip';
 
 /**
- * Super Cloner Pro — Downloader de Assets Completo
- * 
- * Estratégia:
- * 1. Baixa o HTML original.
- * 2. Mapeia todos os assets (JS, CSS, Imagens, Vídeos).
- * 3. Baixa fisicamente cada asset e coloca no ZIP.
- * 4. Reescreve o HTML para apontar para caminhos locais (assets/).
- * 5. Resolve problemas de CORS e SPA baixando o conteúdo.
+ * Super Cloner Pro v2.0 — Downloader de Assets Ultra-Resiliente
  */
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36';
@@ -35,7 +28,6 @@ export async function GET(req: NextRequest) {
     const baseUrl = `${baseUrlObj.protocol}//${baseUrlObj.host}`;
     const baseDir = originalUrl.substring(0, originalUrl.lastIndexOf('/') + 1);
 
-    // 1. Fetch do HTML
     const htmlResponse = await fetch(originalUrl, { headers: { 'User-Agent': UA } });
     if (!htmlResponse.ok) throw new Error(`Erro ao acessar site original: ${htmlResponse.status}`);
     const htmlText = await htmlResponse.text();
@@ -43,14 +35,14 @@ export async function GET(req: NextRequest) {
 
     const zip = new JSZip();
     const assetsFolder = zip.folder('assets');
-    const assetMap = new Map<string, string>(); // URL original -> Nome local
+    const assetMap = new Map<string, string>();
 
-    async function downloadAsset(url: string, extension: string, isCss: boolean = false): Promise<string | null> {
+    async function downloadAsset(url: string, extension: string): Promise<string | null> {
       if (!url || url.startsWith('data:') || url.startsWith('javascript:')) return null;
       
-      let absoluteUrl = url;
-      if (url.startsWith('//')) absoluteUrl = 'https:' + url;
-      else if (!url.startsWith('http')) absoluteUrl = url.startsWith('/') ? baseUrl + url : baseDir + url;
+      let absoluteUrl = url.split(' ')[0]; // Limpar srcset se vier
+      if (absoluteUrl.startsWith('//')) absoluteUrl = 'https:' + absoluteUrl;
+      else if (!absoluteUrl.startsWith('http')) absoluteUrl = absoluteUrl.startsWith('/') ? baseUrl + absoluteUrl : baseDir + absoluteUrl;
 
       const cacheKey = absoluteUrl.split('?')[0];
       if (assetMap.has(cacheKey)) return assetMap.get(cacheKey)!;
@@ -61,129 +53,99 @@ export async function GET(req: NextRequest) {
         
         let buffer = await response.arrayBuffer();
         
-        // Se for CSS, processar URLs internas
-        if (isCss || extension === 'css') {
-          const decoder = new TextDecoder('utf-8');
-          let cssText = decoder.decode(buffer);
-          
-          // Encontrar urls no CSS (fontes, imagens)
-          const cssUrls: string[] = [];
-          cssText = cssText.replace(/url\s*\(\s*['"]?([^'")]*)['"]?\s*\)/gi, (match, internalUrl) => {
-            if (internalUrl.startsWith('data:') || internalUrl.startsWith('http')) return match;
-            const ext = internalUrl.split('.').pop()?.split('?')[0] || 'file';
-            const fileName = `sub_${Math.random().toString(36).substring(2, 8)}.${ext}`;
-            cssUrls.push(internalUrl);
-            return `url("${fileName}")`;
+        // Se for CSS, tentar resolver fontes básicas
+        if (extension === 'css') {
+          let cssText = new TextDecoder('utf-8').decode(buffer);
+          cssText = cssText.replace(/url\(['"]?([^'")]*)['"]?\)/gi, (match, path) => {
+             if (path.startsWith('http') || path.startsWith('data:')) return match;
+             return `url("${path.split('/').pop()}")`; 
           });
-
-          // Baixar assets do CSS (limitado para evitar recursão infinita)
-          for (const internalUrl of cssUrls.slice(0, 20)) {
-            const internalAbs = internalUrl.startsWith('/') ? baseUrl + internalUrl : new URL(internalUrl, absoluteUrl).href;
-            try {
-              const res = await fetch(internalAbs, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(5000) });
-              if (res.ok) {
-                const subName = cssText.match(new RegExp(`url\\("([^"]+)"\\)`))?.[1] || `asset_${Math.random().toString(36).substring(2,6)}`;
-                assetsFolder?.file(subName, await res.arrayBuffer());
-              }
-            } catch(e) {}
-          }
-          
           buffer = new TextEncoder().encode(cssText).buffer;
         }
 
-        const fileName = `file_${Math.random().toString(36).substring(2, 10)}.${extension}`;
+        const fileName = `asset_${Math.random().toString(36).substring(2, 10)}.${extension}`;
         assetsFolder?.file(fileName, buffer);
         
-        assetMap.set(cacheKey, `./assets/${fileName}`);
-        return `./assets/${fileName}`;
+        const localPath = `./assets/${fileName}`;
+        assetMap.set(cacheKey, localPath);
+        return localPath;
       } catch (err) {
-        console.error(`Falha ao baixar asset: ${absoluteUrl}`, err);
-        return absoluteUrl;
+        return null;
       }
     }
 
-    // 2. Coletar Assets (Scripts, Links, Imagens)
     const assetPromises: Promise<void>[] = [];
 
-    // Scripts
+    // 1. SCRIPTS E STYLES
     $('script[src]').each((_, el) => {
       const src = $(el).attr('src')!;
       assetPromises.push(downloadAsset(src, 'js').then(local => { if (local) $(el).attr('src', local); }));
-      $(el).removeAttr('crossorigin');
-      $(el).removeAttr('integrity');
+      $(el).removeAttr('crossorigin').removeAttr('integrity');
     });
 
-    // Stylesheets
     $('link[rel="stylesheet"]').each((_, el) => {
       const href = $(el).attr('href')!;
-      assetPromises.push(downloadAsset(href, 'css', true).then(local => { if (local) $(el).attr('href', local); }));
+      assetPromises.push(downloadAsset(href, 'css').then(local => { if (local) $(el).attr('href', local); }));
     });
 
-    // Imagens
-    $('img[src]').each((_, el) => {
-      const src = $(el).attr('src')!;
-      const ext = src.split('.').pop()?.split('?')[0] || 'png';
-      assetPromises.push(downloadAsset(src, ext).then(local => { if (local) $(el).attr('src', local); }));
-    });
-    
-    // Favicon e outros links
-    $('link[rel*="icon"]').each((_, el) => {
-      const href = $(el).attr('href')!;
-      assetPromises.push(downloadAsset(href, 'png').then(local => { if (local) $(el).attr('href', local); }));
+    // 2. IMAGENS (Suporte a Lazy Loading e Srcset)
+    $('img, source').each((_, el) => {
+      const attrs = ['src', 'srcset', 'data-src', 'data-lazy-src', 'data-original'];
+      attrs.forEach(attr => {
+        const val = $(el).attr(attr);
+        if (val) {
+           const ext = val.split('.').pop()?.split('?')[0].substring(0,4) || 'png';
+           assetPromises.push(downloadAsset(val, ext).then(local => { 
+             if (local) {
+               $(el).attr(attr, local);
+               if (attr !== 'src') $(el).attr('src', local); // Forçar src para garantir que apareça
+             }
+           }));
+        }
+      });
     });
 
-    // Aguardar todos os downloads (ou falhas)
+    // 3. BACKGROUND IMAGES EM INLINE STYLE
+    $('[style*="background"]').each((_, el) => {
+      const style = $(el).attr('style') || '';
+      const match = style.match(/url\(['"]?([^'")]*)['"]?\)/i);
+      if (match && match[1]) {
+        const url = match[1];
+        assetPromises.push(downloadAsset(url, 'png').then(local => {
+          if (local) $(el).attr('style', style.replace(url, local));
+        }));
+      }
+    });
+
     await Promise.allSettled(assetPromises);
 
-    // 3. Injetar Lógica de Checkout (Mesma do proxy)
+    // 4. LÓGICA DE CHECKOUT
     if (config.checkout_url) {
-        const checkoutScript = `
-        <script id="sf-checkout-handler">
+        const checkoutScript = `<script>
           (function() {
-            var CHECKOUT = '${config.checkout_url}';
-            var gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper'];
-            
-            function go(e) {
-                e.preventDefault(); e.stopPropagation();
-                var u = new URL(CHECKOUT);
-                var p = new URLSearchParams(window.location.search);
-                ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','src','sck'].forEach(function(k) {
-                    if (p.get(k)) u.searchParams.set(k, p.get(k));
-                });
-                window.location.href = u.toString();
-            }
-
+            var url = '${config.checkout_url}';
+            var gates = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper'];
             document.addEventListener('click', function(e) {
                 var a = e.target.closest('a');
-                if (a) {
-                    var h = (a.getAttribute('href')||'').toLowerCase();
-                    if (gateways.some(function(g){ return h.includes(g); }) || a.dataset.checkout) go(e);
-                }
-                var b = e.target.closest('button');
-                if (b) {
-                    var t = (b.textContent||'').toLowerCase();
-                    if (['comprar','adquirir','garantir','quero','assinar','buy'].some(function(v){ return t.includes(v); })) go(e);
+                if (a && gates.some(g => (a.href||'').toLowerCase().includes(g))) {
+                    e.preventDefault();
+                    var target = new URL(url);
+                    var params = new URLSearchParams(window.location.search);
+                    params.forEach((v, k) => target.searchParams.set(k, v));
+                    window.location.href = target.toString();
                 }
             }, true);
           })();
-        </script>
-        `;
+        </script>`;
         $('head').append(checkoutScript);
     }
 
-    // Injetar pixels e scripts customizados
     if (config.pixel_script) $('head').append(config.pixel_script);
-    if (config.head_scripts) $('head').append(config.head_scripts);
-    if (config.body_scripts) $('body').append(config.body_scripts);
-
-    // Remover tags de base para não conflitar com caminhos locais
     $('base').remove();
-
-    // 4. Gerar index.html e ZIP
     zip.file('index.html', $.html());
     
     const zipBuffer = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
-    const safeName = (page.name || 'pagina').replace(/[^a-zA-Z0-9_\-]/g, '_').substring(0, 50);
+    const safeName = (page.name || 'pagina').replace(/[^a-zA-Z0-9_\-]/g, '_');
 
     return new NextResponse(zipBuffer, {
       headers: {
@@ -193,7 +155,6 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Full ZIP Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
