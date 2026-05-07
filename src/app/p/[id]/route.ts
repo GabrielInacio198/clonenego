@@ -13,13 +13,25 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const { data: page, error } = await supabaseAdmin
+    // 1. Buscar página com fallback inteligente
+    let { data: page, error } = await supabaseAdmin
       .from('cloned_pages')
       .select('*')
       .eq('id', id)
       .single();
 
-    if (error || !page || !page.original_url) {
+    // Se não achar pelo ID (ex: /p/resultado), pega o último clone para manter a navegação ativa
+    if (error || !page) {
+      const { data: fallback } = await supabaseAdmin
+        .from('cloned_pages')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      page = fallback;
+    }
+
+    if (!page || !page.original_url) {
       return new NextResponse('<h1>Página não encontrada</h1>', { status: 404 });
     }
 
