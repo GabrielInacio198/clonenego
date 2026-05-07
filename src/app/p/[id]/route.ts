@@ -77,7 +77,17 @@ export async function GET(
           // 1. DEEP SPOOFING (Enganar Scripts de SPA)
           try {
             const spoof = (obj, prop, value) => {
-              try { Object.defineProperty(obj, prop, { get: () => value, configurable: true }); } catch(e) {}
+              try { 
+                const originalDescriptor = Object.getOwnPropertyDescriptor(obj, prop);
+                Object.defineProperty(obj, prop, { 
+                  get: () => value, 
+                  set: (v) => {
+                    if (originalDescriptor && originalDescriptor.set) originalDescriptor.set.call(obj, v);
+                    else obj[prop] = v;
+                  },
+                  configurable: true 
+                }); 
+              } catch(e) {}
             };
             window.__PROXY_HOST__ = TARGET_HOST;
             window.__PROXY_ORIGIN__ = TARGET_ORIGIN;
