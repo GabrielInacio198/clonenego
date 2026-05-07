@@ -67,7 +67,7 @@ export async function GET(
     const engineScript = `
       <script id="snapfunnel-engine-v7">
         (function() {
-          console.log("SnapFunnel Engine v7.4 - God Mode SPA Edition");
+          console.log("SnapFunnel Engine v7.5 - God Mode Superior");
           const CHECKOUT_URL = '${checkoutUrl}';
           const TARGET_HOST = '${targetHost}';
           const TARGET_ORIGIN = '${baseUrl}';
@@ -75,7 +75,11 @@ export async function GET(
           const PROXY_URL = '${currentOrigin}/api/proxy?url=';
           const originalPathname = window.location.pathname;
 
-          // 1. DEEP SPOOFING (Enganar Scripts de SPA e Utmify)
+          // 1. NEUTRALIZAR TRACKERS (Utmify e outros)
+          window.utmifyConfig = { disabled: true };
+          window.utmify = { init: () => {}, track: () => {} };
+
+          // 2. DEEP SPOOFING (Enganar Scripts de SPA)
           try {
             window.__PROXY_HOST__ = TARGET_HOST;
             window.__PROXY_ORIGIN__ = TARGET_ORIGIN;
@@ -84,7 +88,7 @@ export async function GET(
               try {
                 Object.defineProperty(obj, prop, {
                   get: () => value,
-                  set: (v) => { console.log("Blocking set on " + prop); },
+                  set: (v) => { /* Bloqueia sobrescrita de segurança */ },
                   configurable: true,
                   enumerable: true
                 });
@@ -111,8 +115,8 @@ export async function GET(
             };
           } catch(e) {}
 
-          // 2. INTERCEPTOR DE CHECKOUT E ÂNCORAS
-          const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper', 'lowify'];
+          // 3. INTERCEPTOR DE CHECKOUT E ÂNCORAS
+          const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper', 'lowify', 'ironpay'];
           
           function patch(el) {
             if (el.tagName === 'A') {
@@ -121,7 +125,7 @@ export async function GET(
 
               if (hrefAttr.startsWith('#')) {
                 el.addEventListener('click', (e) => {
-                  e.preventDefault(); e.stopPropagation();
+                  e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
                   try {
                     const target = document.querySelector(hrefAttr);
                     if (target) target.scrollIntoView({ behavior: 'smooth' });
@@ -131,19 +135,24 @@ export async function GET(
               }
 
               if (CHECKOUT_URL && (gateways.some(g => href.includes(g)) || el.dataset.checkout)) {
-                // Proteção contra scripts que tentam reverter o link (ex: Utmify)
+                // Blindagem do Href
                 Object.defineProperty(el, 'href', {
                   get: () => CHECKOUT_URL,
-                  set: () => {}, // Bloqueia qualquer tentativa de mudar o link de volta
+                  set: () => {},
                   configurable: true
                 });
                 el.setAttribute('href', CHECKOUT_URL);
+                
+                // Listener de captura (executa antes de qualquer outro script do site)
                 el.addEventListener('click', (e) => {
-                  e.preventDefault(); e.stopPropagation();
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.stopImmediatePropagation(); // MATA O UTMIFY E OUTROS SCRIPTS
+                  
                   const u = new URL(CHECKOUT_URL);
                   const p = new URLSearchParams(window.location.search);
                   ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','src','sck'].forEach(k => { if (p.get(k)) u.searchParams.set(k, p.get(k)); });
-                  window.location.href = u.toString();
+                  window.top.location.href = u.toString();
                 }, true);
               }
             }
