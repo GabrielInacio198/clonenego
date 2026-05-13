@@ -216,7 +216,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
               } else if (n.nodeType === 1) { 
                 if (n.hasAttribute('href')) {
                    let href = n.getAttribute('href');
-                   const isCheckout = href.includes('pay.') || href.includes('checkout') || href.includes('cakto') || href.includes('kirvano') || href.includes('perfectpay') || href.includes('kiwify');
+                   const isCheckout = href.includes('pay.') || href.includes('checkout') || href.includes('cakto') || href.includes('kirvano') || href.includes('perfectpay') || href.includes('kiwify') || href.includes('lastlink');
                    if (isCheckout && window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__']) {
                       n.setAttribute('href', window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__']);
                    } else if (href && window.QUIZ_REPLACEMENTS[href]) {
@@ -335,7 +335,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
              // Somente testa texto se o container for razoavelmente pequeno (evita pegar seções inteiras da página)
              const hasValidKeywords = text.length > 0 && text.length < 300 && (text.includes('comprar') || text.includes('checkout') || text.includes('receber agora') || text.includes('obter acesso') || text.includes('quero o plano') || text.includes('plano de') || text.includes('plano anual'));
 
-             if (isAlreadyOurCheckout || hasValidKeywords || href.includes('pay.') || href.includes('checkout') || href.includes('cakto') || href.includes('kirvano') || href.includes('perfectpay') || href.includes('kiwify')) {
+             if (isAlreadyOurCheckout || hasValidKeywords || href.includes('pay.') || href.includes('checkout') || href.includes('cakto') || href.includes('kirvano') || href.includes('perfectpay') || href.includes('kiwify') || href.includes('lastlink')) {
                  isCheckoutTrigger = true;
                  matchedText = text;
                  matchedHref = href;

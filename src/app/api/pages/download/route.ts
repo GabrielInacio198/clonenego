@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
         const checkoutScript = `<script>
           (function() {
             var url = '${config.checkout_url}';
-            var gates = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper'];
+            var gates = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper', 'lastlink'];
             document.addEventListener('click', function(e) {
                 var a = e.target.closest('a');
                 if (a && gates.some(g => (a.href||'').toLowerCase().includes(g))) {
