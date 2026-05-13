@@ -67,17 +67,60 @@ export async function GET(
           const CHECKOUT_URL = '${checkoutUrl}';
           const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper', 'lowify', 'ironpay', 'lastlink'];
           
+          function isCheckout(urlOrText) {
+             if (!urlOrText) return false;
+             const lower = urlOrText.toLowerCase();
+             return gateways.some(g => lower.includes(g));
+          }
+
+          function forceCheckout(e) {
+            if (!CHECKOUT_URL) return;
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const t = new URL(CHECKOUT_URL);
+            new URLSearchParams(window.location.search).forEach((v, k) => t.searchParams.set(k, v));
+            window.top.location.href = t.toString();
+          }
+
+          // Interceptador de cliques globais (Capture Phase)
+          document.addEventListener('click', function(e) {
+             let el = e.target;
+             let depth = 0;
+             while (el && el !== document.body && depth < 5) {
+                const href = el.getAttribute ? (el.getAttribute('href') || '') : '';
+                const onclick = el.getAttribute ? (el.getAttribute('onclick') || '') : '';
+                const text = el.textContent || '';
+                
+                if (isCheckout(href) || isCheckout(onclick) || (el.tagName === 'BUTTON' && isCheckout(text))) {
+                   forceCheckout(e);
+                   return;
+                }
+                el = el.parentElement;
+                depth++;
+             }
+          }, true);
+
+          // Sobrescrever window.open
+          const origOpen = window.open;
+          window.open = function(url, target, features) {
+             if (CHECKOUT_URL && typeof url === 'string' && isCheckout(url)) {
+                 const t = new URL(CHECKOUT_URL);
+                 new URLSearchParams(window.location.search).forEach((v, k) => t.searchParams.set(k, v));
+                 return origOpen.call(window, t.toString(), target, features);
+             }
+             return origOpen.call(window, url, target, features);
+          };
+
+          // Patch preventivo em tags <a> caso o clique não seja pego
           function patch() {
-            document.querySelectorAll('a').forEach(el => {
-              const h = (el.getAttribute('href') || '').toLowerCase();
-              if (CHECKOUT_URL && (gateways.some(g => h.includes(g)) || el.dataset.checkout)) {
-                el.href = CHECKOUT_URL;
-                el.onclick = (e) => {
-                  e.preventDefault();
-                  const t = new URL(CHECKOUT_URL);
-                  new URLSearchParams(window.location.search).forEach((v, k) => t.searchParams.set(k, v));
-                  window.top.location.href = t.toString();
-                };
+            if (!CHECKOUT_URL) return;
+            document.querySelectorAll('a, button, [onclick]').forEach(el => {
+              const h = (el.getAttribute('href') || el.getAttribute('onclick') || '').toLowerCase();
+              if (gateways.some(g => h.includes(g)) || el.dataset.checkout) {
+                if (el.tagName === 'A') el.href = CHECKOUT_URL;
+                el.onclick = forceCheckout;
               }
             });
           }
