@@ -67,10 +67,20 @@ export async function GET(
           const CHECKOUT_URL = '${checkoutUrl}';
           const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper', 'lowify', 'ironpay', 'lastlink'];
           
-          function isCheckout(urlOrText) {
-             if (!urlOrText) return false;
-             const lower = urlOrText.toLowerCase();
+          function isCheckoutUrl(url) {
+             if (!url) return false;
+             const lower = url.toLowerCase();
              return gateways.some(g => lower.includes(g));
+          }
+
+          function isCheckoutText(text) {
+             if (!text || text.length > 300) return false;
+             const lower = text.trim().toLowerCase();
+             return gateways.some(g => lower.includes(g)) || 
+                    lower.includes('obter meu plano') || 
+                    lower.includes('quero o plano') || 
+                    lower.includes('receber agora') || 
+                    lower.includes('obter acesso');
           }
 
           function forceCheckout(e) {
@@ -93,7 +103,7 @@ export async function GET(
                 const onclick = el.getAttribute ? (el.getAttribute('onclick') || '') : '';
                 const text = el.textContent || '';
                 
-                if (isCheckout(href) || isCheckout(onclick) || (el.tagName === 'BUTTON' && isCheckout(text))) {
+                if (isCheckoutUrl(href) || isCheckoutUrl(onclick) || isCheckoutText(text)) {
                    forceCheckout(e);
                    return;
                 }
@@ -105,7 +115,7 @@ export async function GET(
           // Sobrescrever window.open
           const origOpen = window.open;
           window.open = function(url, target, features) {
-             if (CHECKOUT_URL && typeof url === 'string' && isCheckout(url)) {
+             if (CHECKOUT_URL && typeof url === 'string' && isCheckoutUrl(url)) {
                  const t = new URL(CHECKOUT_URL);
                  new URLSearchParams(window.location.search).forEach((v, k) => t.searchParams.set(k, v));
                  return origOpen.call(window, t.toString(), target, features);
@@ -118,7 +128,8 @@ export async function GET(
             if (!CHECKOUT_URL) return;
             document.querySelectorAll('a, button, [onclick]').forEach(el => {
               const h = (el.getAttribute('href') || el.getAttribute('onclick') || '').toLowerCase();
-              if (gateways.some(g => h.includes(g)) || el.dataset.checkout) {
+              const text = el.textContent || '';
+              if (isCheckoutUrl(h) || el.dataset.checkout || isCheckoutText(text)) {
                 if (el.tagName === 'A') el.href = CHECKOUT_URL;
                 el.onclick = forceCheckout;
               }
