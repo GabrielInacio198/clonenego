@@ -60,7 +60,7 @@ export async function GET(
     $('base').remove();
     $('head').prepend(`<base href="${originalUrl}">`);
 
-    // 2. Script para Checkout (Isolamento Cirúrgico e Scroll)
+    // 2. Script para Checkout (Isolamento Definitivo e Trava de Segurança)
     const engineScript = `
       <script>
         (function() {
@@ -70,13 +70,14 @@ export async function GET(
           function patch() {
             if (!CHECKOUT_URL) return;
 
-            // 1. O Interceptador Original e Seguro (Previne o erro gravíssimo no início do funil)
+            // 1. O Interceptador Original (Com trava de 'http' para impedir bugs no meio do quiz com links relativos)
             document.querySelectorAll('a').forEach(el => {
               const h = (el.getAttribute('href') || '').toLowerCase();
-              if (gateways.some(g => h.includes(g)) || el.dataset.checkout) {
+              if ((h.startsWith('http') && gateways.some(g => h.includes(g))) || el.dataset.checkout) {
                 el.href = CHECKOUT_URL;
                 el.onclick = (e) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   const t = new URL(CHECKOUT_URL);
                   new URLSearchParams(window.location.search).forEach((v, k) => t.searchParams.set(k, v));
                   window.top.location.href = t.toString();
@@ -84,22 +85,25 @@ export async function GET(
               }
             });
 
-            // 2. O Isolador do 2º Botão (Remove eventos maliciosos clonando o elemento e foca no 1º botão)
+            // 2. O Isolador do 2º Botão (Clona e DESTRÓI o ID original para que o script da Lastlink fique cego)
             document.querySelectorAll('button').forEach(btn => {
                 const text = (btn.textContent || '').trim().toUpperCase();
                 
                 if (text.includes('OBTER MEU PLANO PERSONALIZADO') || text.includes('COMPRAR AGORA') || btn.id === '39Kr7c') {
                     if (!btn.dataset.isolated) {
-                        // cloneNode(true) copia o HTML mas DESTRÓI todos os EventListeners criados por scripts (ex: Lastlink)
                         const clone = btn.cloneNode(true);
                         clone.dataset.isolated = 'true';
+                        // Mágica: Muda o ID para que event listeners globais do Lastlink não consigam reconhecer o botão!
+                        if (clone.id) clone.id = clone.id + '_isolated';
+                        
                         btn.parentNode.replaceChild(clone, btn);
                         
                         const action = (e) => {
                            e.preventDefault();
                            e.stopPropagation();
+                           e.stopImmediatePropagation();
                            
-                           // Procura o 1º botão <a> que já foi magicamente consertado pelo passo 1
+                           // Rola suavemente até o 1º link de checkout patcheado
                            const firstCheckoutLink = Array.from(document.querySelectorAll('a')).find(a => a.href === CHECKOUT_URL);
                            
                            if (firstCheckoutLink) {
@@ -111,18 +115,20 @@ export async function GET(
                                setTimeout(() => {
                                    firstCheckoutLink.style.transform = 'scale(1)';
                                    firstCheckoutLink.click();
-                               }, 500);
+                               }, 400);
                            } else {
-                               // Fallback direto
                                const t = new URL(CHECKOUT_URL);
                                new URLSearchParams(window.location.search).forEach((v, k) => t.searchParams.set(k, v));
                                window.top.location.href = t.toString();
                            }
                         };
                         
-                        clone.onclick = action;
-                        clone.ontouchstart = action;
-                        clone.onmousedown = action;
+                        // Captura o clique na fase mais prioritária (Capture Phase)
+                        clone.addEventListener('click', action, { capture: true });
+                        clone.addEventListener('mousedown', action, { capture: true });
+                        clone.addEventListener('touchstart', action, { capture: true });
+                        clone.addEventListener('pointerdown', action, { capture: true });
+                        clone.addEventListener('touchend', action, { capture: true });
                     }
                 }
             });
