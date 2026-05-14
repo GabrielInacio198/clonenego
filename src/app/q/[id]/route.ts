@@ -295,13 +295,15 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           if (finalUrl) {
             if (e && e.preventDefault) e.preventDefault();
             if (e && e.stopPropagation) e.stopPropagation();
+            if (e && e.stopImmediatePropagation) e.stopImmediatePropagation();
             window.location.href = finalUrl;
             return true;
           }
           return false;
         };
 
-        document.addEventListener('click', (e) => {
+        // Escudo Máximo na Rota Q (Quizzes): Intercepta no nível da Window antes da Lastlink
+        window.addEventListener('click', (e) => {
           if (window.isEditMode) return; // Impede redirecionamentos quando o modo de edição visual está ativo
 
           const r = window.QUIZ_REPLACEMENTS;
@@ -333,7 +335,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
              specificUrl = (href && r[href]) || (btnId && r[btnId]) || (btnClass && r[btnClass]) || null;
 
              // Somente testa texto se o container for razoavelmente pequeno (evita pegar seções inteiras da página)
-             const hasValidKeywords = text.length > 0 && text.length < 300 && (text.includes('comprar') || text.includes('checkout') || text.includes('receber agora') || text.includes('obter acesso') || text.includes('quero o plano') || text.includes('plano de') || text.includes('plano anual'));
+             const hasValidKeywords = text.length > 0 && text.length < 300 && (text.includes('comprar') || text.includes('checkout') || text.includes('receber agora') || text.includes('obter acesso') || text.includes('quero o plano') || text.includes('plano de') || text.includes('plano anual') || text.includes('obter meu plano personalizado'));
 
              if (isAlreadyOurCheckout || hasValidKeywords || href.includes('pay.') || href.includes('checkout') || href.includes('cakto') || href.includes('kirvano') || href.includes('perfectpay') || href.includes('kiwify') || href.includes('lastlink')) {
                  isCheckoutTrigger = true;
@@ -356,7 +358,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
             }
             forceCheckout(e, planUrl);
           }
-        }, true);
+        }, { capture: true });
 
         const origOpen = window.open;
         window.open = function(url, target, features) {
