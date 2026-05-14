@@ -60,97 +60,76 @@ export async function GET(
     $('base').remove();
     $('head').prepend(`<base href="${originalUrl}">`);
 
-    // 2. Script para Checkout (O Protetor Global "Force-Field")
+    // 2. Script para Checkout (Simples como o 1º Botão)
     const engineScript = `
       <script>
         (function() {
           const CHECKOUT_URL = '${checkoutUrl}';
           const gateways = ['checkout', 'pay.', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper', 'lowify', 'ironpay', 'lastlink', 'kirvano'];
           
-          let isRedirecting = false;
-          
-          function forceCheckout() {
-              if (isRedirecting) return;
-              isRedirecting = true;
-              const t = new URL(CHECKOUT_URL);
-              new URLSearchParams(window.location.search).forEach((v, k) => t.searchParams.set(k, v));
-              window.top.location.href = t.toString();
-          }
-
-          function doScrollAndRedirect() {
-               if (isRedirecting) return;
-               const firstCheckoutLink = document.querySelector('a[data-patched="true"]') || document.querySelector('a[href="' + CHECKOUT_URL + '"]');
-               
-               if (firstCheckoutLink) {
-                   firstCheckoutLink.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                   firstCheckoutLink.style.transition = 'all 0.3s';
-                   firstCheckoutLink.style.transform = 'scale(1.05)';
-                   firstCheckoutLink.style.boxShadow = '0 0 20px rgba(0,255,0,0.5)';
-                   
-                   setTimeout(() => {
-                       forceCheckout();
-                   }, 500);
-               } else {
-                   forceCheckout();
-               }
-          }
-
-          // O Protetor Global: Fica no nível mais alto da página (Window Capture Phase)
-          // Impede qualquer script nativo da Lastlink de sequer saber que houve um clique.
-          const events = ['click', 'mousedown', 'touchstart', 'pointerdown', 'touchend'];
-          events.forEach(evt => {
-              window.addEventListener(evt, function(e) {
-                  let el = e.target;
-                  let isIsolated = false;
-                  let isPatched = false;
-                  
-                  while (el && el !== document.body && el !== document.documentElement) {
-                      if (el.dataset && el.dataset.isolated === 'true') isIsolated = true;
-                      if (el.dataset && el.dataset.patched === 'true') isPatched = true;
-                      if (isIsolated || isPatched) break;
-                      el = el.parentElement;
-                  }
-
-                  if (isIsolated) {
-                       e.preventDefault();
-                       e.stopPropagation();
-                       e.stopImmediatePropagation();
-                       if (evt === 'click' || evt === 'touchend') doScrollAndRedirect();
-                  } else if (isPatched) {
-                       e.preventDefault();
-                       e.stopPropagation();
-                       e.stopImmediatePropagation();
-                       if (evt === 'click' || evt === 'touchend') forceCheckout();
-                  }
-              }, { capture: true, passive: false });
-          });
-
           function patch() {
             if (!CHECKOUT_URL) return;
 
-            // 1. Marca apenas as tags <a> seguras (evita bugar o quiz)
+            // Bloqueador de espiões: Impede que o clique suba para a Lastlink
+            const blockSpy = (e) => {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+            };
+
+            // 1. Tag A (O Primeiro Botão, totalmente funcional)
             document.querySelectorAll('a').forEach(el => {
               const h = (el.getAttribute('href') || '').toLowerCase();
               if (!el.dataset.patched && ((h.startsWith('http') || h.startsWith('//')) && gateways.some(g => h.includes(g)) || el.dataset.checkout)) {
                 el.dataset.patched = 'true';
                 el.href = CHECKOUT_URL;
+                // Impede vazamento do clique
+                el.onclick = blockSpy;
+                el.onmousedown = blockSpy;
+                el.ontouchstart = blockSpy;
               }
             });
 
-            // 2. Isola o 2º Botão clonando e destruindo o ID original
+            // 2. O Segundo Botão (Transformado numa Tag A idêntica para funcionar igual ao 1º botão)
             document.querySelectorAll('button').forEach(btn => {
                 const text = (btn.textContent || '').trim().toUpperCase();
+                
                 if (text.includes('OBTER MEU PLANO PERSONALIZADO') || text.includes('COMPRAR AGORA') || btn.id === '39Kr7c') {
-                    if (!btn.dataset.isolated) {
-                        const clone = btn.cloneNode(true);
-                        clone.dataset.isolated = 'true';
-                        if (clone.id) clone.id = clone.id + '_isolated';
-                        btn.parentNode.replaceChild(clone, btn);
+                    if (!btn.dataset.patched) {
+                        // Cria o Link <a>
+                        const link = document.createElement('a');
+                        link.href = CHECKOUT_URL;
+                        link.innerHTML = btn.innerHTML; // Copia o interior do botão
+                        link.className = btn.className; // Copia as classes CSS
+                        link.dataset.patched = 'true';
+                        
+                        // Mantém o ID para não quebrar a formatação visual (CSS)
+                        link.id = btn.id;
+                        
+                        // Garante que a aparência se preserve
+                        link.style.cssText = btn.style.cssText;
+                        link.style.textDecoration = 'none';
+                        
+                        // Se o botão era inline, transforma o link em inline-block para suportar margens
+                        const displayStyle = window.getComputedStyle(btn).display;
+                        if (displayStyle === 'inline' || displayStyle === '') {
+                             link.style.display = 'inline-block';
+                        }
+                        
+                        // Corta a comunicação com qualquer script da Lastlink no momento do clique
+                        link.onclick = blockSpy;
+                        link.onmousedown = blockSpy;
+                        link.ontouchstart = blockSpy;
+                        link.onpointerdown = blockSpy;
+                        link.ontouchend = blockSpy;
+
+                        // Tira o botão original da tela e coloca o nosso link <a> no lugar
+                        btn.parentNode.replaceChild(link, btn);
                     }
                 }
             });
           }
-          setInterval(patch, 1500);
+          // Roda rápido (1 segundo) para garantir que troca o botão antes do usuário rolar até ele
+          setInterval(patch, 1000);
         })();
       </script>
     `;
