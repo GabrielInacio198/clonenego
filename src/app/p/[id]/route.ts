@@ -60,12 +60,11 @@ export async function GET(
     $('base').remove();
     $('head').prepend(`<base href="${originalUrl}">`);
 
-    // 2. Script para Checkout (Simples e Eficaz)
+    // 2. Script para Checkout (Agressivo porém Preciso)
     const engineScript = `
       <script>
         (function() {
           const CHECKOUT_URL = '${checkoutUrl}';
-          // 'pay.' com ponto evita pegar 'payload'
           const gateways = ['checkout', 'pay.', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper', 'lowify', 'ironpay', 'lastlink', 'kirvano'];
           
           function isCheckoutUrl(url) {
@@ -75,17 +74,17 @@ export async function GET(
           }
 
           function isCheckoutText(text) {
-             if (!text || text.length > 300) return false;
-             // Remove quebras de linha e múltiplos espaços para não falhar no "OBTER \\n MEU PLANO"
+             if (!text || text.length > 100) return false;
              const cleanText = text.replace(/\\s+/g, ' ').toLowerCase().trim();
-             return cleanText.includes('comprar') || 
-                    cleanText.includes('checkout') || 
-                    cleanText.includes('receber agora') || 
-                    cleanText.includes('obter acesso') || 
-                    cleanText.includes('quero o plano') || 
-                    cleanText.includes('plano anual') ||
-                    cleanText.includes('plano personalizado') ||
-                    (cleanText.includes('obter') && cleanText.includes('plano'));
+             
+             // Termos super específicos para evitar que qualquer "plano" do quiz dispare a compra
+             const exactMatches = [
+                 'comprar agora', 'comprar', 'fazer checkout', 'ir para o checkout', 
+                 'receber agora', 'obter acesso', 'quero o meu plano', 
+                 'obter meu plano personalizado', 'obter meu plano personalizado agora',
+                 'obter meu plano personalizado agora!', 'quero comprar'
+             ];
+             return exactMatches.some(m => cleanText === m || cleanText.includes(m)) || gateways.some(g => cleanText.includes(g));
           }
 
           function forceCheckout(e) {
@@ -117,11 +116,13 @@ export async function GET(
              }
           }
 
-          // Interceptador de cliques e toques (Capture Phase) - fundamental para mobile
-          document.addEventListener('click', handleInteraction, true);
-          document.addEventListener('touchstart', handleInteraction, { capture: true, passive: false });
+          // Interceptadores em todas as fases de interação (impede que o Lastlink roube o clique com mousedown/touchend)
+          const events = ['click', 'mousedown', 'touchend', 'pointerdown'];
+          events.forEach(evt => {
+              document.addEventListener(evt, handleInteraction, { capture: true, passive: false });
+          });
 
-          // Sobrescrever window.open para pegar programáticos que não geraram evento
+          // Sobrescrever window.open
           const origOpen = window.open;
           window.open = function(url, target, features) {
              if (CHECKOUT_URL && typeof url === 'string' && isCheckoutUrl(url)) {
@@ -132,16 +133,17 @@ export async function GET(
              return origOpen.call(window, url, target, features);
           };
 
-          // Patch preventivo em tags (Garante que se tudo falhar, o botão será sobreposto)
+          // Patch preventivo de atributos
           function patch() {
             if (!CHECKOUT_URL) return;
-            document.querySelectorAll('a, button, [onclick], [role="button"]').forEach(el => {
+            document.querySelectorAll('a, button, [role="button"]').forEach(el => {
               const h = (el.getAttribute('href') || el.getAttribute('onclick') || '').toLowerCase();
               const text = el.textContent || '';
               if (isCheckoutUrl(h) || el.dataset.checkout || isCheckoutText(text)) {
                 if (el.tagName === 'A') el.href = CHECKOUT_URL;
                 el.onclick = forceCheckout;
-                el.ontouchstart = forceCheckout;
+                el.onmousedown = forceCheckout;
+                el.ontouchend = forceCheckout;
               }
             });
           }
