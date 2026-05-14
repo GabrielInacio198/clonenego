@@ -60,91 +60,71 @@ export async function GET(
     $('base').remove();
     $('head').prepend(`<base href="${originalUrl}">`);
 
-    // 2. Script para Checkout (Agressivo porém Preciso)
+    // 2. Script para Checkout (Isolamento Cirúrgico e Scroll)
     const engineScript = `
       <script>
         (function() {
           const CHECKOUT_URL = '${checkoutUrl}';
           const gateways = ['checkout', 'pay.', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper', 'lowify', 'ironpay', 'lastlink', 'kirvano'];
           
-          function isCheckoutUrl(url) {
-             if (!url) return false;
-             const lower = url.toLowerCase();
-             return gateways.some(g => lower.includes(g));
-          }
-
-          function isCheckoutText(text) {
-             if (!text || text.length > 100) return false;
-             const cleanText = text.replace(/\\s+/g, ' ').toLowerCase().trim();
-             
-             // Termos super específicos para evitar que qualquer "plano" do quiz dispare a compra
-             const exactMatches = [
-                 'comprar agora', 'comprar', 'fazer checkout', 'ir para o checkout', 
-                 'receber agora', 'obter acesso', 'quero o meu plano', 
-                 'obter meu plano personalizado', 'obter meu plano personalizado agora',
-                 'obter meu plano personalizado agora!', 'quero comprar'
-             ];
-             return exactMatches.some(m => cleanText === m || cleanText.includes(m)) || gateways.some(g => cleanText.includes(g));
-          }
-
-          function forceCheckout(e) {
-            if (!CHECKOUT_URL) return;
-            if (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-            }
-            const t = new URL(CHECKOUT_URL);
-            new URLSearchParams(window.location.search).forEach((v, k) => t.searchParams.set(k, v));
-            window.top.location.href = t.toString();
-          }
-
-          function handleInteraction(e) {
-             let el = e.target;
-             let depth = 0;
-             while (el && el !== document.body && el !== document.documentElement && depth < 6) {
-                const href = el.getAttribute ? (el.getAttribute('href') || '') : '';
-                const onclick = el.getAttribute ? (el.getAttribute('onclick') || '') : '';
-                const text = el.textContent || '';
-                
-                if (isCheckoutUrl(href) || isCheckoutUrl(onclick) || isCheckoutText(text)) {
-                   forceCheckout(e);
-                   return;
-                }
-                el = el.parentElement;
-                depth++;
-             }
-          }
-
-          // Interceptadores em todas as fases de interação (impede que o Lastlink roube o clique com mousedown/touchend)
-          const events = ['click', 'mousedown', 'touchend', 'pointerdown'];
-          events.forEach(evt => {
-              document.addEventListener(evt, handleInteraction, { capture: true, passive: false });
-          });
-
-          // Sobrescrever window.open
-          const origOpen = window.open;
-          window.open = function(url, target, features) {
-             if (CHECKOUT_URL && typeof url === 'string' && isCheckoutUrl(url)) {
-                 const t = new URL(CHECKOUT_URL);
-                 new URLSearchParams(window.location.search).forEach((v, k) => t.searchParams.set(k, v));
-                 return origOpen.call(window, t.toString(), target, features);
-             }
-             return origOpen.call(window, url, target, features);
-          };
-
-          // Patch preventivo de atributos
           function patch() {
             if (!CHECKOUT_URL) return;
-            document.querySelectorAll('a, button, [role="button"]').forEach(el => {
-              const h = (el.getAttribute('href') || el.getAttribute('onclick') || '').toLowerCase();
-              const text = el.textContent || '';
-              if (isCheckoutUrl(h) || el.dataset.checkout || isCheckoutText(text)) {
-                if (el.tagName === 'A') el.href = CHECKOUT_URL;
-                el.onclick = forceCheckout;
-                el.onmousedown = forceCheckout;
-                el.ontouchend = forceCheckout;
+
+            // 1. O Interceptador Original e Seguro (Previne o erro gravíssimo no início do funil)
+            document.querySelectorAll('a').forEach(el => {
+              const h = (el.getAttribute('href') || '').toLowerCase();
+              if (gateways.some(g => h.includes(g)) || el.dataset.checkout) {
+                el.href = CHECKOUT_URL;
+                el.onclick = (e) => {
+                  e.preventDefault();
+                  const t = new URL(CHECKOUT_URL);
+                  new URLSearchParams(window.location.search).forEach((v, k) => t.searchParams.set(k, v));
+                  window.top.location.href = t.toString();
+                };
               }
+            });
+
+            // 2. O Isolador do 2º Botão (Remove eventos maliciosos clonando o elemento e foca no 1º botão)
+            document.querySelectorAll('button').forEach(btn => {
+                const text = (btn.textContent || '').trim().toUpperCase();
+                
+                if (text.includes('OBTER MEU PLANO PERSONALIZADO') || text.includes('COMPRAR AGORA') || btn.id === '39Kr7c') {
+                    if (!btn.dataset.isolated) {
+                        // cloneNode(true) copia o HTML mas DESTRÓI todos os EventListeners criados por scripts (ex: Lastlink)
+                        const clone = btn.cloneNode(true);
+                        clone.dataset.isolated = 'true';
+                        btn.parentNode.replaceChild(clone, btn);
+                        
+                        const action = (e) => {
+                           e.preventDefault();
+                           e.stopPropagation();
+                           
+                           // Procura o 1º botão <a> que já foi magicamente consertado pelo passo 1
+                           const firstCheckoutLink = Array.from(document.querySelectorAll('a')).find(a => a.href === CHECKOUT_URL);
+                           
+                           if (firstCheckoutLink) {
+                               firstCheckoutLink.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                               firstCheckoutLink.style.transition = 'all 0.3s';
+                               firstCheckoutLink.style.transform = 'scale(1.05)';
+                               firstCheckoutLink.style.boxShadow = '0 0 20px rgba(0,255,0,0.5)';
+                               
+                               setTimeout(() => {
+                                   firstCheckoutLink.style.transform = 'scale(1)';
+                                   firstCheckoutLink.click();
+                               }, 500);
+                           } else {
+                               // Fallback direto
+                               const t = new URL(CHECKOUT_URL);
+                               new URLSearchParams(window.location.search).forEach((v, k) => t.searchParams.set(k, v));
+                               window.top.location.href = t.toString();
+                           }
+                        };
+                        
+                        clone.onclick = action;
+                        clone.ontouchstart = action;
+                        clone.onmousedown = action;
+                    }
+                }
             });
           }
           setInterval(patch, 2000);
