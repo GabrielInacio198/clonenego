@@ -65,7 +65,8 @@ export async function GET(
       <script>
         (function() {
           const CHECKOUT_URL = '${checkoutUrl}';
-          const gateways = ['checkout', 'pay', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper', 'lowify', 'ironpay', 'lastlink'];
+          // 'pay.' com ponto evita pegar 'payload'
+          const gateways = ['checkout', 'pay.', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper', 'lowify', 'ironpay', 'lastlink', 'kirvano'];
           
           function isCheckoutUrl(url) {
              if (!url) return false;
@@ -75,12 +76,16 @@ export async function GET(
 
           function isCheckoutText(text) {
              if (!text || text.length > 300) return false;
-             const lower = text.trim().toLowerCase();
-             return gateways.some(g => lower.includes(g)) || 
-                    lower.includes('obter meu plano') || 
-                    lower.includes('quero o plano') || 
-                    lower.includes('receber agora') || 
-                    lower.includes('obter acesso');
+             // Remove quebras de linha e múltiplos espaços para não falhar no "OBTER \\n MEU PLANO"
+             const cleanText = text.replace(/\\s+/g, ' ').toLowerCase().trim();
+             return cleanText.includes('comprar') || 
+                    cleanText.includes('checkout') || 
+                    cleanText.includes('receber agora') || 
+                    cleanText.includes('obter acesso') || 
+                    cleanText.includes('quero o plano') || 
+                    cleanText.includes('plano anual') ||
+                    cleanText.includes('plano personalizado') ||
+                    (cleanText.includes('obter') && cleanText.includes('plano'));
           }
 
           function forceCheckout(e) {
@@ -88,17 +93,17 @@ export async function GET(
             if (e) {
                 e.preventDefault();
                 e.stopPropagation();
+                e.stopImmediatePropagation();
             }
             const t = new URL(CHECKOUT_URL);
             new URLSearchParams(window.location.search).forEach((v, k) => t.searchParams.set(k, v));
             window.top.location.href = t.toString();
           }
 
-          // Interceptador de cliques globais (Capture Phase)
-          document.addEventListener('click', function(e) {
+          function handleInteraction(e) {
              let el = e.target;
              let depth = 0;
-             while (el && el !== document.body && depth < 5) {
+             while (el && el !== document.body && el !== document.documentElement && depth < 6) {
                 const href = el.getAttribute ? (el.getAttribute('href') || '') : '';
                 const onclick = el.getAttribute ? (el.getAttribute('onclick') || '') : '';
                 const text = el.textContent || '';
@@ -110,9 +115,13 @@ export async function GET(
                 el = el.parentElement;
                 depth++;
              }
-          }, true);
+          }
 
-          // Sobrescrever window.open
+          // Interceptador de cliques e toques (Capture Phase) - fundamental para mobile
+          document.addEventListener('click', handleInteraction, true);
+          document.addEventListener('touchstart', handleInteraction, { capture: true, passive: false });
+
+          // Sobrescrever window.open para pegar programáticos que não geraram evento
           const origOpen = window.open;
           window.open = function(url, target, features) {
              if (CHECKOUT_URL && typeof url === 'string' && isCheckoutUrl(url)) {
@@ -123,15 +132,16 @@ export async function GET(
              return origOpen.call(window, url, target, features);
           };
 
-          // Patch preventivo em tags <a> caso o clique não seja pego
+          // Patch preventivo em tags (Garante que se tudo falhar, o botão será sobreposto)
           function patch() {
             if (!CHECKOUT_URL) return;
-            document.querySelectorAll('a, button, [onclick]').forEach(el => {
+            document.querySelectorAll('a, button, [onclick], [role="button"]').forEach(el => {
               const h = (el.getAttribute('href') || el.getAttribute('onclick') || '').toLowerCase();
               const text = el.textContent || '';
               if (isCheckoutUrl(h) || el.dataset.checkout || isCheckoutText(text)) {
                 if (el.tagName === 'A') el.href = CHECKOUT_URL;
                 el.onclick = forceCheckout;
+                el.ontouchstart = forceCheckout;
               }
             });
           }
