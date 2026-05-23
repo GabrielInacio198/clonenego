@@ -407,68 +407,92 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                 
                 <div className="space-y-3">
                   {/* PLANO 1 */}
-                  <div className="bg-black/20 rounded-xl p-3 space-y-2">
-                    <label className="text-[10px] text-emerald-300 font-bold block">💰 PLANO 1 (ex: 1 Mês)</label>
-                    <input
-                      type="text"
-                      placeholder="Link do checkout do Plano 1..."
-                      className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-xs text-emerald-200 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
-                      value={replacements['__CHECKOUT_PLAN_1__'] || ''}
-                      onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_PLAN_1__': e.target.value })}
-                    />
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[9px] text-emerald-400/60 whitespace-nowrap">🎯 Texto do botão:</span>
+                  <div className="bg-black/20 rounded-xl p-4 space-y-3">
+                    <h4 className="text-[11px] text-emerald-300 font-bold tracking-wider mb-2">💰 PLANO 1 (ex: 1 Mês)</h4>
+                    
+                    <div>
+                      <label className="text-[10px] text-emerald-400/80 mb-1 block">Link do Checkout:</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: https://pay.cakto.com.br/plano1..."
+                        className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2.5 text-xs text-emerald-200 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
+                        value={replacements['__CHECKOUT_PLAN_1__'] || ''}
+                        onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_PLAN_1__': e.target.value })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-[10px] text-emerald-400/80 flex items-center gap-1 mb-1">
+                        🎯 <span className="font-semibold">Texto exato do botão (opcional):</span>
+                      </label>
                       <input
                         type="text"
                         placeholder='Ex: "Quero o plano mensal"'
-                        className="flex-1 bg-white/5 border border-white/10 rounded-md px-2 py-1 text-[10px] text-emerald-300 placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-emerald-400 transition-all"
+                        className="w-full bg-emerald-950/50 border border-emerald-500/30 rounded-lg px-3 py-2.5 text-xs text-emerald-100 placeholder-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
                         value={replacements['__CHECKOUT_BUTTON_TEXT_1__'] || ''}
                         onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_BUTTON_TEXT_1__': e.target.value })}
                       />
+                      <p className="text-[9px] text-emerald-400/60 mt-1">Deixe vazio para usar detecção automática (palavras-chave).</p>
                     </div>
                   </div>
 
                   {/* PLANO 2 */}
-                  <div className="bg-black/20 rounded-xl p-3 space-y-2">
-                    <label className="text-[10px] text-emerald-300 font-bold block">💎 PLANO 2 (ex: 3 Meses)</label>
-                    <input
-                      type="text"
-                      placeholder="Link do checkout do Plano 2..."
-                      className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-xs text-emerald-200 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
-                      value={replacements['__CHECKOUT_PLAN_2__'] || ''}
-                      onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_PLAN_2__': e.target.value })}
-                    />
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[9px] text-emerald-400/60 whitespace-nowrap">🎯 Texto do botão:</span>
+                  <div className="bg-black/20 rounded-xl p-4 space-y-3">
+                    <h4 className="text-[11px] text-emerald-300 font-bold tracking-wider mb-2">💎 PLANO 2 (ex: 3 Meses)</h4>
+                    
+                    <div>
+                      <label className="text-[10px] text-emerald-400/80 mb-1 block">Link do Checkout:</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: https://pay.cakto.com.br/plano2..."
+                        className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2.5 text-xs text-emerald-200 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
+                        value={replacements['__CHECKOUT_PLAN_2__'] || ''}
+                        onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_PLAN_2__': e.target.value })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-[10px] text-emerald-400/80 flex items-center gap-1 mb-1">
+                        🎯 <span className="font-semibold">Texto exato do botão (opcional):</span>
+                      </label>
                       <input
                         type="text"
                         placeholder='Ex: "Quero o plano trimestral"'
-                        className="flex-1 bg-white/5 border border-white/10 rounded-md px-2 py-1 text-[10px] text-emerald-300 placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-emerald-400 transition-all"
+                        className="w-full bg-emerald-950/50 border border-emerald-500/30 rounded-lg px-3 py-2.5 text-xs text-emerald-100 placeholder-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
                         value={replacements['__CHECKOUT_BUTTON_TEXT_2__'] || ''}
                         onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_BUTTON_TEXT_2__': e.target.value })}
                       />
+                      <p className="text-[9px] text-emerald-400/60 mt-1">Deixe vazio para usar detecção automática (palavras-chave).</p>
                     </div>
                   </div>
 
                   {/* PLANO 3 */}
-                  <div className="bg-black/20 rounded-xl p-3 space-y-2">
-                    <label className="text-[10px] text-emerald-300 font-bold block">🏆 PLANO 3 (ex: Anual)</label>
-                    <input
-                      type="text"
-                      placeholder="Link do checkout do Plano 3..."
-                      className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-xs text-emerald-200 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
-                      value={replacements['__CHECKOUT_PLAN_3__'] || ''}
-                      onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_PLAN_3__': e.target.value })}
-                    />
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[9px] text-emerald-400/60 whitespace-nowrap">🎯 Texto do botão:</span>
+                  <div className="bg-black/20 rounded-xl p-4 space-y-3">
+                    <h4 className="text-[11px] text-emerald-300 font-bold tracking-wider mb-2">🏆 PLANO 3 (ex: Anual)</h4>
+                    
+                    <div>
+                      <label className="text-[10px] text-emerald-400/80 mb-1 block">Link do Checkout:</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: https://pay.cakto.com.br/plano3..."
+                        className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2.5 text-xs text-emerald-200 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
+                        value={replacements['__CHECKOUT_PLAN_3__'] || ''}
+                        onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_PLAN_3__': e.target.value })}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-[10px] text-emerald-400/80 flex items-center gap-1 mb-1">
+                        🎯 <span className="font-semibold">Texto exato do botão (opcional):</span>
+                      </label>
                       <input
                         type="text"
                         placeholder='Ex: "Quero o plano anual"'
-                        className="flex-1 bg-white/5 border border-white/10 rounded-md px-2 py-1 text-[10px] text-emerald-300 placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-emerald-400 transition-all"
+                        className="w-full bg-emerald-950/50 border border-emerald-500/30 rounded-lg px-3 py-2.5 text-xs text-emerald-100 placeholder-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
                         value={replacements['__CHECKOUT_BUTTON_TEXT_3__'] || ''}
                         onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_BUTTON_TEXT_3__': e.target.value })}
                       />
+                      <p className="text-[9px] text-emerald-400/60 mt-1">Deixe vazio para usar detecção automática (palavras-chave).</p>
                     </div>
                   </div>
                 </div>
