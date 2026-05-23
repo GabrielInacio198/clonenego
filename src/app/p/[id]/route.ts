@@ -56,9 +56,56 @@ export async function GET(
     const targetHost = new URL(originalUrl).host;
     const currentOrigin = req.nextUrl.origin;
 
+    // Detectar SPA (React/Vue/Vite): corpo quase vazio + elemento raiz
+    const bodyText = $('body').text().trim();
+    const hasSpaRoot = $('[id="root"],[id="app"],[id="__next"],[data-reactroot]').length > 0;
+    const isSpa = bodyText.length < 300 && hasSpaRoot;
+
     // 1. BASE TAG (O que resolvia lindamente)
     $('base').remove();
     $('head').prepend(`<base href="${originalUrl}">`);
+
+    // 1b. SPA ENGINE — intercepta fetch/XHR e corrige assets dinâmicos
+    if (isSpa) {
+      const spaEngine = `<script>
+(function(){
+  var B='${baseUrl}',H='${targetHost}';
+  window.__PROXY_HOST__=H;window.__PROXY_ORIGIN__='https://'+H;
+
+  // Redireciona fetch relativo para domínio original
+  var _f=window.fetch.bind(window);
+  window.fetch=function(input,init){
+    if(typeof input==='string'&&input.startsWith('/')&&!input.startsWith('//')){input=B+input;}
+    return _f(input,init);
+  };
+
+  // Redireciona XHR relativo para domínio original
+  var _o=XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open=function(){
+    var a=Array.prototype.slice.call(arguments);
+    if(typeof a[1]==='string'&&a[1].startsWith('/')&&!a[1].startsWith('//')){a[1]=B+a[1];}
+    return _o.apply(this,a);
+  };
+
+  // Corrige assets (src/href) adicionados dinamicamente pela SPA
+  function fix(el){
+    if(!el||!el.getAttribute)return;
+    ['src','href','poster'].forEach(function(a){
+      var v=el.getAttribute(a);
+      if(v&&v.startsWith('/')&&!v.startsWith('//')&&!v.includes('/api/')){el.setAttribute(a,B+v);}
+    });
+  }
+  new MutationObserver(function(ms){
+    ms.forEach(function(m){
+      m.addedNodes.forEach(function(n){
+        if(n.nodeType===1){fix(n);if(n.querySelectorAll)n.querySelectorAll('[src],[href],[poster]').forEach(fix);}
+      });
+    });
+  }).observe(document.documentElement,{childList:true,subtree:true});
+})();
+</script>`;
+      $('head').prepend(spaEngine);
+    }
 
     // 2. Script para Checkout (Simples como o 1º Botão)
     const engineScript = `

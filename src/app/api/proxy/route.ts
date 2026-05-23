@@ -47,6 +47,23 @@ export async function GET(req: NextRequest) {
         content = content.replace(/(?<!\.)\b(?:window\.)?location\.hostname\b/g, `(window.__PROXY_HOST__ || window.location.hostname)`);
         content = content.replace(/(?<!\.)\b(?:window\.)?location\.host\b/g, `(window.__PROXY_HOST__ || window.location.host)`);
         content = content.replace(/(?<!\.)\b(?:window\.)?location\.origin\b/g, `(window.__PROXY_ORIGIN__ || window.location.origin)`);
+
+        // Reescreve import.meta.url para o URL original do arquivo (Vite usa para resolver assets)
+        content = content.replace(/\bimport\.meta\.url\b/g, `"${targetUrl}"`);
+
+        // Reescreve dynamic imports relativos: import('./chunk-xxx.js')
+        const jsOrigin = new URL(targetUrl).origin;
+        content = content.replace(/\bimport\(["'](\.\.?\/[^"'\s)]+)["']\)/g, (_, path) => {
+          try {
+            const abs = new URL(path, targetUrl).href;
+            return `import("/api/proxy?url=${encodeURIComponent(abs)}&overrideHost=${encodeURIComponent(overrideHost)}")`;
+          } catch { return _; }
+        });
+        // Reescreve dynamic imports com caminho absoluto: import('/assets/xxx.js')
+        content = content.replace(/\bimport\(["'](\/[^"'\s)]+\.js[^"']*)["']\)/g, (_, path) => {
+          const abs = jsOrigin + path;
+          return `import("/api/proxy?url=${encodeURIComponent(abs)}&overrideHost=${encodeURIComponent(overrideHost)}")`;
+        });
       }
 
       return new NextResponse(content, { headers: responseHeaders });
