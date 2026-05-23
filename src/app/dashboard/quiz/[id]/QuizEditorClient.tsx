@@ -405,60 +405,95 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                 </div>
                 <p className="text-[10px] text-emerald-300/70 mb-3">Se o funil tem vários planos com preços diferentes, cole cada link abaixo:</p>
                 
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-[10px] text-emerald-300 font-bold block mb-1">💰 PLANO 1 (ex: 1 Mês)</label>
-                    <input 
+                <div className="space-y-3">
+                  {/* PLANO 1 */}
+                  <div className="bg-black/20 rounded-xl p-3 space-y-2">
+                    <label className="text-[10px] text-emerald-300 font-bold block">💰 PLANO 1 (ex: 1 Mês)</label>
+                    <input
                       type="text"
                       placeholder="Link do checkout do Plano 1..."
                       className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-xs text-emerald-200 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
                       value={replacements['__CHECKOUT_PLAN_1__'] || ''}
                       onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_PLAN_1__': e.target.value })}
                     />
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] text-emerald-400/60 whitespace-nowrap">🎯 Texto do botão:</span>
+                      <input
+                        type="text"
+                        placeholder='Ex: "Quero o plano mensal"'
+                        className="flex-1 bg-white/5 border border-white/10 rounded-md px-2 py-1 text-[10px] text-emerald-300 placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-emerald-400 transition-all"
+                        value={replacements['__CHECKOUT_BUTTON_TEXT_1__'] || ''}
+                        onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_BUTTON_TEXT_1__': e.target.value })}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-[10px] text-emerald-300 font-bold block mb-1">💎 PLANO 2 (ex: 3 Meses)</label>
-                    <input 
+
+                  {/* PLANO 2 */}
+                  <div className="bg-black/20 rounded-xl p-3 space-y-2">
+                    <label className="text-[10px] text-emerald-300 font-bold block">💎 PLANO 2 (ex: 3 Meses)</label>
+                    <input
                       type="text"
                       placeholder="Link do checkout do Plano 2..."
                       className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-xs text-emerald-200 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
                       value={replacements['__CHECKOUT_PLAN_2__'] || ''}
                       onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_PLAN_2__': e.target.value })}
                     />
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] text-emerald-400/60 whitespace-nowrap">🎯 Texto do botão:</span>
+                      <input
+                        type="text"
+                        placeholder='Ex: "Quero o plano trimestral"'
+                        className="flex-1 bg-white/5 border border-white/10 rounded-md px-2 py-1 text-[10px] text-emerald-300 placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-emerald-400 transition-all"
+                        value={replacements['__CHECKOUT_BUTTON_TEXT_2__'] || ''}
+                        onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_BUTTON_TEXT_2__': e.target.value })}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-[10px] text-emerald-300 font-bold block mb-1">🏆 PLANO 3 (ex: Anual)</label>
-                    <input 
+
+                  {/* PLANO 3 */}
+                  <div className="bg-black/20 rounded-xl p-3 space-y-2">
+                    <label className="text-[10px] text-emerald-300 font-bold block">🏆 PLANO 3 (ex: Anual)</label>
+                    <input
                       type="text"
                       placeholder="Link do checkout do Plano 3..."
                       className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-xs text-emerald-200 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all"
                       value={replacements['__CHECKOUT_PLAN_3__'] || ''}
                       onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_PLAN_3__': e.target.value })}
                     />
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] text-emerald-400/60 whitespace-nowrap">🎯 Texto do botão:</span>
+                      <input
+                        type="text"
+                        placeholder='Ex: "Quero o plano anual"'
+                        className="flex-1 bg-white/5 border border-white/10 rounded-md px-2 py-1 text-[10px] text-emerald-300 placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-emerald-400 transition-all"
+                        value={replacements['__CHECKOUT_BUTTON_TEXT_3__'] || ''}
+                        onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_BUTTON_TEXT_3__': e.target.value })}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Texto Exato do Botão de Checkout */}
-              <div className="bg-gradient-to-br from-orange-900 to-orange-800 rounded-2xl p-4 shadow-xl border border-orange-500/20 mb-4">
+              {/* Texto Exato do Botão de Checkout - Checkout único/global */}
+              <div className="bg-gradient-to-br from-violet-900 to-indigo-900 rounded-2xl p-4 shadow-xl border border-violet-500/30 mb-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="p-1.5 bg-orange-500 rounded-lg">
+                  <div className="p-1.5 bg-violet-500 rounded-lg shadow-lg shadow-violet-500/30">
                     <Type size={14} className="text-white" />
                   </div>
                   <h3 className="text-sm font-bold text-white uppercase tracking-wider">🎯 Texto Exato do Botão Final</h3>
                 </div>
-                <p className="text-[10px] text-orange-300/70 mb-3">
-                  Digite o texto exato do botão de compra do quiz. O SnapFunnel vai interceptar <strong className="text-orange-300">apenas esse botão</strong> — sem falsos positivos em outros cliques.
+                <p className="text-[10px] text-violet-300/80 mb-3">
+                  Se o funil tem <strong className="text-violet-200">um único botão de compra</strong>, cole o texto exato abaixo. O SnapFunnel intercepta apenas esse botão — zero falsos positivos.
                 </p>
                 <input
                   type="text"
-                  placeholder='Ex: "Sim, quero começar!" ou "Obter meu plano"'
-                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-orange-200 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-orange-400 transition-all"
+                  placeholder='Ex: "Sim, quero começar!" ou "Receber o meu plano"'
+                  className="w-full bg-white/10 border border-violet-400/30 rounded-xl px-4 py-3 text-sm text-violet-100 placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-violet-400 transition-all"
                   value={replacements['__CHECKOUT_BUTTON_TEXT__'] || ''}
                   onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_BUTTON_TEXT__': e.target.value })}
                 />
-                <p className="text-[10px] text-orange-400/80 mt-2">
-                  💡 Ative <strong>"Navegar"</strong> abaixo, avance até a última tela do quiz e copie o texto exato do botão de compra.
+                <p className="text-[10px] text-violet-400/70 mt-2">
+                  💡 Ative <strong className="text-violet-300">"Navegar"</strong> abaixo, avance até a última tela e copie o texto exato do botão de compra.
                 </p>
               </div>
 

@@ -377,10 +377,24 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           if (isCheckoutTrigger || specificUrl) {
             let planUrl = specificUrl;
             if (!planUrl) {
-              if (matchedHref && checkoutBases.some(b => matchedHref.includes(b))) planUrl = matchedHref;
-              else if (matchedText.includes('1 m') || matchedText.includes('mensal') || matchedText.includes('plano 1')) planUrl = r['__CHECKOUT_PLAN_1__'];
-              else if (matchedText.includes('3 m') || matchedText.includes('trimestral') || matchedText.includes('plano 2')) planUrl = r['__CHECKOUT_PLAN_2__'];
-              else if (matchedText.includes('anual') || matchedText.includes('12 m') || matchedText.includes('plano 3') || matchedText.includes('6 m')) planUrl = r['__CHECKOUT_PLAN_3__'];
+              if (matchedHref && checkoutBases.some(b => matchedHref.includes(b))) {
+                planUrl = matchedHref;
+              } else {
+                // MODO PRECISO POR PLANO: verificar textos exatos dos botões por plano (mesma lógica do __CHECKOUT_BUTTON_TEXT__)
+                const btnText1 = (r['__CHECKOUT_BUTTON_TEXT_1__'] || '').toLowerCase().trim();
+                const btnText2 = (r['__CHECKOUT_BUTTON_TEXT_2__'] || '').toLowerCase().trim();
+                const btnText3 = (r['__CHECKOUT_BUTTON_TEXT_3__'] || '').toLowerCase().trim();
+
+                if (btnText1 && matchedText.includes(btnText1)) planUrl = r['__CHECKOUT_PLAN_1__'];
+                else if (btnText2 && matchedText.includes(btnText2)) planUrl = r['__CHECKOUT_PLAN_2__'];
+                else if (btnText3 && matchedText.includes(btnText3)) planUrl = r['__CHECKOUT_PLAN_3__'];
+                else {
+                  // MODO GENÉRICO POR PLANO: fallback com keywords predefinidas (usado quando não há textos exatos)
+                  if (matchedText.includes('1 m') || matchedText.includes('mensal') || matchedText.includes('plano 1')) planUrl = r['__CHECKOUT_PLAN_1__'];
+                  else if (matchedText.includes('3 m') || matchedText.includes('trimestral') || matchedText.includes('plano 2')) planUrl = r['__CHECKOUT_PLAN_2__'];
+                  else if (matchedText.includes('anual') || matchedText.includes('12 m') || matchedText.includes('plano 3') || matchedText.includes('6 m')) planUrl = r['__CHECKOUT_PLAN_3__'];
+                }
+              }
             }
             forceCheckout(e, planUrl);
           }
