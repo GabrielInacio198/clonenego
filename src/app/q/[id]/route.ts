@@ -363,7 +363,10 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         const origOpen = window.open;
         window.open = function(url, target, features) {
           if (window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__'] && typeof url === 'string') {
-            if (url.includes('pay.') || url.includes('checkout') || !url.includes(window.location.hostname)) {
+            // Interceptar apenas URLs que são de plataformas de pagamento conhecidas
+            // REMOVIDO: "|| !url.includes(window.location.hostname)" pois era agressivo demais
+            // e interceptava navegação interna do quiz (inlead, hotmart, etc.)
+            if (url.includes('pay.') || url.includes('checkout') || url.includes('cakto') || url.includes('kirvano') || url.includes('perfectpay') || url.includes('kiwify') || url.includes('lastlink')) {
               const finalUrl = prepareCheckoutUrl(window.QUIZ_REPLACEMENTS['__CHECKOUT_URL__']);
               if (finalUrl) return origOpen.call(window, finalUrl, target, features);
             }
