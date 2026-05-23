@@ -438,7 +438,30 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
                   </div>
                 </div>
               </div>
-              
+
+              {/* Texto Exato do Botão de Checkout */}
+              <div className="bg-gradient-to-br from-orange-900 to-orange-800 rounded-2xl p-4 shadow-xl border border-orange-500/20 mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="p-1.5 bg-orange-500 rounded-lg">
+                    <Type size={14} className="text-white" />
+                  </div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">🎯 Texto Exato do Botão Final</h3>
+                </div>
+                <p className="text-[10px] text-orange-300/70 mb-3">
+                  Digite o texto exato do botão de compra do quiz. O SnapFunnel vai interceptar <strong className="text-orange-300">apenas esse botão</strong> — sem falsos positivos em outros cliques.
+                </p>
+                <input
+                  type="text"
+                  placeholder='Ex: "Sim, quero começar!" ou "Obter meu plano"'
+                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-orange-200 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-orange-400 transition-all"
+                  value={replacements['__CHECKOUT_BUTTON_TEXT__'] || ''}
+                  onChange={(e) => setReplacements({ ...replacements, '__CHECKOUT_BUTTON_TEXT__': e.target.value })}
+                />
+                <p className="text-[10px] text-orange-400/80 mt-2">
+                  💡 Ative <strong>"Navegar"</strong> abaixo, avance até a última tela do quiz e copie o texto exato do botão de compra.
+                </p>
+              </div>
+
               {/* Toggle de Modo */}
               <div className="flex bg-gray-200 rounded-lg p-1">
                  <button 

@@ -311,6 +311,9 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
              try { const obj = new URL(u); return obj.origin + obj.pathname; } catch(err) { return u; }
           });
 
+          // MODO PRECISO: se o usuário definiu o texto exato do botão, usar apenas ele
+          const customButtonText = (r['__CHECKOUT_BUTTON_TEXT__'] || '').toLowerCase().trim();
+
           let currentTarget = e.target;
           let isCheckoutTrigger = false;
           let specificUrl = null;
@@ -334,25 +337,37 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
              specificUrl = (href && r[href]) || (btnId && r[btnId]) || (btnClass && r[btnClass]) || null;
 
-             // Keywords de texto: só checamos nos primeiros 2 níveis (elemento clicado + pai direto)
-             // para evitar falsos positivos em quizzes de saúde/dieta onde opções de resposta
-             // podem conter palavras como "plano de alimentação", "plano anual de treino", etc.
-             // REMOVIDOS: 'plano de' e 'plano anual' — muito genéricos para quizzes de saúde
-             const hasValidKeywords = depth < 2 && text.length > 0 && text.length < 200 && (
-               text.includes('comprar') ||
-               text.includes('checkout') ||
-               text.includes('receber agora') ||
-               text.includes('obter acesso') ||
-               text.includes('quero o plano') ||
-               text.includes('obter meu plano personalizado')
-             );
+             if (customButtonText) {
+               // ── MODO PRECISO ──────────────────────────────────────────────────────────
+               // Só aciona se o elemento (até 4 níveis) contém o texto exato informado pelo usuário
+               // + continua detectando hrefs de plataformas de pagamento como fallback de segurança
+               const hasCustomText = depth < 4 && text.includes(customButtonText);
+               if (isAlreadyOurCheckout || hasCustomText || href.includes('pay.') || href.includes('checkout') || href.includes('cakto') || href.includes('kirvano') || href.includes('perfectpay') || href.includes('kiwify') || href.includes('lastlink')) {
+                   isCheckoutTrigger = true;
+                   matchedText = text;
+                   matchedHref = href;
+                   break;
+               }
+             } else {
+               // ── MODO GENÉRICO ─────────────────────────────────────────────────────────
+               // Usa keywords predefinidas, verificando texto apenas nos 2 primeiros níveis
+               // para evitar falsos positivos em quizzes de saúde/dieta
+               const hasValidKeywords = depth < 2 && text.length > 0 && text.length < 200 && (
+                 text.includes('comprar') ||
+                 text.includes('checkout') ||
+                 text.includes('receber agora') ||
+                 text.includes('obter acesso') ||
+                 text.includes('quero o plano') ||
+                 text.includes('obter meu plano personalizado')
+               );
 
-             // Checagem de href/id/class de checkout vai até profundidade 6 (não alterado)
-             if (isAlreadyOurCheckout || hasValidKeywords || href.includes('pay.') || href.includes('checkout') || href.includes('cakto') || href.includes('kirvano') || href.includes('perfectpay') || href.includes('kiwify') || href.includes('lastlink')) {
-                 isCheckoutTrigger = true;
-                 matchedText = text;
-                 matchedHref = href;
-                 break;
+               // Checagem de href de checkout vai até profundidade 6 (não alterado)
+               if (isAlreadyOurCheckout || hasValidKeywords || href.includes('pay.') || href.includes('checkout') || href.includes('cakto') || href.includes('kirvano') || href.includes('perfectpay') || href.includes('kiwify') || href.includes('lastlink')) {
+                   isCheckoutTrigger = true;
+                   matchedText = text;
+                   matchedHref = href;
+                   break;
+               }
              }
              
              currentTarget = currentTarget.parentElement;
