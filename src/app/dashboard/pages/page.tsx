@@ -216,9 +216,9 @@ export default function PagesList() {
         </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-4 shadow-sm transition-colors">
-        <div className="flex-1 min-w-[200px] relative">
+      {/* Toolbar & Ações em Lote */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors mb-2">
+        <div className="flex-1 min-w-[200px] relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
             type="text"
@@ -228,17 +228,17 @@ export default function PagesList() {
             className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border-none rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none dark:text-white transition-all"
           />
         </div>
-        <button 
-          onClick={toggleSelectAll}
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-        >
-          {selectedIds.length === filteredPages.length && filteredPages.length > 0 ? (
-            <CheckSquare size={18} className="text-purple-600" />
-          ) : (
-            <Square size={18} />
-          )}
-          Selecionar Tudo
-        </button>
+        <label className="flex items-center gap-3 cursor-pointer pl-2 mr-2 border-l border-slate-200 dark:border-slate-700 pl-4 py-1">
+          <input 
+            type="checkbox" 
+            checked={selectedIds.length === filteredPages.length && filteredPages.length > 0}
+            onChange={toggleSelectAll}
+            className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+          />
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            Selecionar Todos ({filteredPages.length})
+          </span>
+        </label>
       </div>
 
       {/* Listagem */}
@@ -270,16 +270,12 @@ export default function PagesList() {
               }`}
             >
               {/* Checkbox */}
-              <button 
-                onClick={() => toggleSelect(page.id)}
-                className={`shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
-                  selectedIds.includes(page.id)
-                    ? 'bg-purple-600 border-purple-600 text-white'
-                    : 'border-slate-200 dark:border-slate-600 hover:border-purple-400'
-                }`}
-              >
-                {selectedIds.includes(page.id) && <Check size={16} strokeWidth={3} />}
-              </button>
+              <input 
+                type="checkbox" 
+                checked={selectedIds.includes(page.id)}
+                onChange={() => toggleSelect(page.id)}
+                className="shrink-0 w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+              />
 
               {/* Preview/Icon */}
               <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-purple-500/20 shrink-0">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Save, Settings, Code, MonitorSmartphone, Type, X, Link as LinkIcon, Image, Trash2, Globe, Copy, Upload, Palette, Smile } from 'lucide-react';
+import { Save, Settings, Code, MonitorSmartphone, Type, X, Link as LinkIcon, Image, Trash2, Globe, Copy, Upload, Palette, Smile, CheckCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
@@ -23,6 +23,7 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
   const [editingText, setEditingText] = useState<{ original: string, current: string, type: string, cssSelector?: string, currentStyles?: any } | null>(null);
   const [isEditMode, setIsEditMode] = useState(true);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [styleValues, setStyleValues] = useState({ backgroundColor: '#ffffff', color: '#000000', borderRadius: '0' });
   
@@ -288,12 +289,13 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
         })
       });
 
-      if (!res.ok) throw new Error('Falha ao salvar');
-      alert('Alterações salvas com sucesso! ✅');
-      router.refresh();
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao salvar. Tente novamente.');
+      if (!res.ok) throw new Error('Erro ao salvar');
+      
+      setToast({ message: 'Alterações salvas com sucesso!', type: 'success' });
+      setTimeout(() => setToast(null), 3000);
+    } catch (err: any) {
+      setToast({ message: 'Erro ao salvar. Tente novamente.', type: 'error' });
+      setTimeout(() => setToast(null), 3000);
     } finally {
       setIsSaving(false);
     }
@@ -301,6 +303,15 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
 
   return (
     <div className="flex h-full bg-gray-50">
+      
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-xl border animate-in slide-in-from-top-2 fade-in duration-300 ${toast.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+           {toast.type === 'success' ? <CheckCircle size={18} /> : <X size={18} />}
+           <span className="font-semibold text-sm">{toast.message}</span>
+        </div>
+      )}
+
       {/* Sidebar de Ferramentas */}
       <div className="w-80 bg-white border-r border-gray-200 flex flex-col shadow-sm z-10">
         <div className="p-6 border-b border-gray-200">
