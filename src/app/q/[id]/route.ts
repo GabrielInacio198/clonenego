@@ -334,9 +334,20 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
              specificUrl = (href && r[href]) || (btnId && r[btnId]) || (btnClass && r[btnClass]) || null;
 
-             // Somente testa texto se o container for razoavelmente pequeno (evita pegar seções inteiras da página)
-             const hasValidKeywords = text.length > 0 && text.length < 300 && (text.includes('comprar') || text.includes('checkout') || text.includes('receber agora') || text.includes('obter acesso') || text.includes('quero o plano') || text.includes('plano de') || text.includes('plano anual') || text.includes('obter meu plano personalizado'));
+             // Keywords de texto: só checamos nos primeiros 2 níveis (elemento clicado + pai direto)
+             // para evitar falsos positivos em quizzes de saúde/dieta onde opções de resposta
+             // podem conter palavras como "plano de alimentação", "plano anual de treino", etc.
+             // REMOVIDOS: 'plano de' e 'plano anual' — muito genéricos para quizzes de saúde
+             const hasValidKeywords = depth < 2 && text.length > 0 && text.length < 200 && (
+               text.includes('comprar') ||
+               text.includes('checkout') ||
+               text.includes('receber agora') ||
+               text.includes('obter acesso') ||
+               text.includes('quero o plano') ||
+               text.includes('obter meu plano personalizado')
+             );
 
+             // Checagem de href/id/class de checkout vai até profundidade 6 (não alterado)
              if (isAlreadyOurCheckout || hasValidKeywords || href.includes('pay.') || href.includes('checkout') || href.includes('cakto') || href.includes('kirvano') || href.includes('perfectpay') || href.includes('kiwify') || href.includes('lastlink')) {
                  isCheckoutTrigger = true;
                  matchedText = text;
