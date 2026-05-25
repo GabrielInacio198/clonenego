@@ -25,6 +25,12 @@ export default function QuizzesList() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean, type: 'single' | 'batch', quizId?: string, quizName?: string }>({ isOpen: false, type: 'single' });
   const [deleteInput, setDeleteInput] = useState('');
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const fetchQuizzes = async () => {
     setLoading(true);
@@ -64,8 +70,9 @@ export default function QuizzesList() {
       });
       if (!res.ok) throw new Error('Erro ao duplicar');
       await fetchQuizzes(); // Recarregar a lista
+      showToast('Quiz duplicado com sucesso!');
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message, 'error');
     } finally {
       setDuplicatingId(null);
     }
@@ -82,8 +89,9 @@ export default function QuizzesList() {
       if (!res.ok) throw new Error('Erro ao renomear');
       setQuizzes(prev => prev.map(q => q.id === quizId ? { ...q, name: renameValue.trim() } : q));
       setRenamingId(null);
+      showToast('Nome atualizado com sucesso!');
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message, 'error');
     }
   };
 
@@ -101,7 +109,7 @@ export default function QuizzesList() {
 
   const confirmDelete = async () => {
     if (deleteInput !== 'DELETAR') {
-      alert('A palavra digitada não confere.');
+      showToast('A palavra digitada não confere.', 'error');
       return;
     }
 
@@ -121,8 +129,9 @@ export default function QuizzesList() {
       if (isBatch) setSelectedIds([]);
       setDeleteModal({ isOpen: false, type: 'single' });
       setDeleteInput('');
+      showToast(isBatch ? 'Quizzes excluídos com sucesso!' : 'Quiz excluído com sucesso!');
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message, 'error');
     } finally {
       setDeletingId(null);
     }
@@ -137,6 +146,14 @@ export default function QuizzesList() {
 
   return (
     <div>
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-xl border animate-in slide-in-from-top-2 fade-in duration-300 ${toast.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+           {toast.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
+           <span className="font-semibold text-sm">{toast.message}</span>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-8">
         <div>
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Meus Quizzes</h2>

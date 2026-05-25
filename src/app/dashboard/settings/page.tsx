@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Globe, Shield, Settings, Loader2, Users, Trash2, Plus, Mail, Lock } from 'lucide-react';
+import { Save, Globe, Shield, Settings, Loader2, Users, Trash2, Plus, Mail, Lock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
@@ -14,6 +14,12 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState('');
   const [isAddingAdmin, setIsAddingAdmin] = useState(false);
   const [adminError, setAdminError] = useState('');
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const router = useRouter();
 
@@ -51,6 +57,7 @@ export default function SettingsPage() {
         setNewEmail('');
         setNewPassword('');
         fetchAdmins();
+        showToast('Administrador adicionado com sucesso!');
       } else {
         setAdminError(data.error || 'Erro ao adicionar administrador');
       }
@@ -68,14 +75,25 @@ export default function SettingsPage() {
       const res = await fetch(`/api/auth/admins?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchAdmins();
+        showToast('Administrador removido com sucesso!');
+      } else {
+        showToast('Erro ao excluir administrador', 'error');
       }
     } catch (err) {
-      alert('Erro ao excluir administrador');
+      showToast('Erro ao excluir administrador', 'error');
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8 relative">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-xl border animate-in slide-in-from-top-2 fade-in duration-300 ${toast.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+           {toast.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+           <span className="font-semibold text-sm">{toast.message}</span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Configurações do Sistema</h1>
       </div>

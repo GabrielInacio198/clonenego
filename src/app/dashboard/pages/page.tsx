@@ -54,6 +54,12 @@ export default function PagesList() {
     onConfirm: () => {},
     type: 'info'
   });
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const fetchPages = async () => {
     setLoading(true);
@@ -121,8 +127,9 @@ export default function PagesList() {
       setPages(prev => prev.filter(p => !ids.includes(p.id)));
       setSelectedIds([]);
       closeModal();
+      showToast(ids.length > 1 ? 'Páginas excluídas com sucesso!' : 'Página excluída com sucesso!');
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message, 'error');
     } finally {
       setIsDeleting(false);
     }
@@ -152,8 +159,9 @@ export default function PagesList() {
       a.download = `pagina_${pageId.slice(0, 8)}.zip`;
       a.click();
       URL.revokeObjectURL(url);
+      showToast('Download iniciado com sucesso!');
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message, 'error');
     } finally {
       setDownloadingId(null);
     }
@@ -170,8 +178,9 @@ export default function PagesList() {
       if (!res.ok) throw new Error('Erro ao renomear');
       setPages(prev => prev.map(p => p.id === pageId ? { ...p, name: renameValue.trim() } : p));
       setRenamingId(null);
+      showToast('Página renomeada com sucesso!');
     } catch (err: any) {
-      alert(err.message);
+      showToast(err.message, 'error');
     }
   };
 
@@ -184,6 +193,14 @@ export default function PagesList() {
 
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-xl border animate-in slide-in-from-top-2 fade-in duration-300 ${toast.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+           {toast.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
+           <span className="font-semibold text-sm">{toast.message}</span>
+        </div>
+      )}
+
       {/* Header com Busca e Ações em Lote */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

@@ -258,8 +258,12 @@ export default function QuizEditorClient({ initialQuiz }: { initialQuiz: any }) 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setEditingText({ ...editingText, current: data.url });
+      setToast({ message: 'Imagem enviada com sucesso!', type: 'success' });
+      setTimeout(() => setToast(null), 3000);
     } catch (err: any) {
-      alert('Erro no upload: ' + err.message);
+      console.error(err);
+      setToast({ message: 'Erro no upload: ' + err.message, type: 'error' });
+      setTimeout(() => setToast(null), 3000);
     } finally {
       setIsUploading(false);
     }
