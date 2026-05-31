@@ -56,34 +56,71 @@ export async function GET(
     const targetHost = new URL(originalUrl).host;
     const currentOrigin = req.nextUrl.origin;
 
-    // Detectar SPA (React/Vue/Vite): corpo quase vazio + elemento raiz
+    // Detectar SPA (React/Vue/Vite/Next): corpo quase vazio + elemento raiz, ou presença de assets do Next.js
     const bodyText = $('body').text().trim();
     const hasSpaRoot = $('[id="root"],[id="app"],[id="__next"],[data-reactroot]').length > 0;
-    const isSpa = bodyText.length < 300 && hasSpaRoot;
+    const hasNextJs = $('script[src*="_next/static"], link[href*="_next/static"]').length > 0;
+    const isSpa = (bodyText.length < 300 && hasSpaRoot) || hasNextJs;
 
-    // 1. BASE TAG (O que resolvia lindamente)
+    // 1. BASE TAG (O que resolvia lindamente a maioria das páginas normais)
     $('base').remove();
     $('head').prepend(`<base href="${originalUrl}">`);
 
-    // 1b. SPA ENGINE — intercepta fetch/XHR e corrige assets dinâmicos
+    // 1b. SPA ENGINE — intercepta fetch/XHR, resolve CORS e lida com hidratação do Next.js
     if (isSpa) {
+      const proxyBase = `${currentOrigin}/api/proxy?overrideHost=${targetHost}&url=`;
       const spaEngine = `<script>
 (function(){
   var B='${baseUrl}',H='${targetHost}';
   window.__PROXY_HOST__=H;window.__PROXY_ORIGIN__='https://'+H;
+  var P='${proxyBase}';
 
-  // Redireciona fetch relativo para domínio original
+  // TRUQUE DE HIDRATAÇÃO PARA SPAs (Next.js, React, etc.)
+  const origReplaceState = window.history.replaceState;
+  const originalUrlObj = new URL('${originalUrl}');
+  const currentPath = window.location.pathname;
+  const currentSearch = window.location.search;
+  
+  if (currentPath !== originalUrlObj.pathname) {
+     origReplaceState.call(window.history, null, '', originalUrlObj.pathname + currentSearch);
+     const restoreUrl = () => origReplaceState.call(window.history, null, '', currentPath + currentSearch);
+     window.addEventListener('load', () => setTimeout(restoreUrl, 1500));
+     setTimeout(restoreUrl, 4000);
+  }
+  
+  // VACINA CONTRA TELA BRANCA DO NEXT.JS (Bloqueia o Next de mudar a URL sozinho depois)
+  const n = () => {};
+  try { Object.defineProperty(window.history, 'pushState', { value: n, writable: false }); } catch(e) {}
+  try { Object.defineProperty(window.history, 'replaceState', { value: n, writable: false }); } catch(e) {}
+
+  // Redireciona fetch relativo para nosso proxy (evita CORS)
   var _f=window.fetch.bind(window);
   window.fetch=function(input,init){
-    if(typeof input==='string'&&input.startsWith('/')&&!input.startsWith('//')){input=B+input;}
+    if(typeof input==='string'){
+       if(input.startsWith('/')&&!input.startsWith('//')){input=P+encodeURIComponent(B+input);}
+       else if(input.startsWith(B)){input=P+encodeURIComponent(input);}
+    } else if (input instanceof Request) {
+       try {
+           var urlObj = new URL(input.url, window.location.origin);
+           if (urlObj.origin === window.location.origin && urlObj.pathname.startsWith('/')) {
+              input = new Request(P+encodeURIComponent(B+urlObj.pathname+urlObj.search), input);
+           } else if (urlObj.origin === B) {
+              input = new Request(P+encodeURIComponent(input.url), input);
+           }
+       } catch(e) {}
+    }
     return _f(input,init);
   };
 
-  // Redireciona XHR relativo para domínio original
+  // Redireciona XHR relativo para nosso proxy
   var _o=XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open=function(){
     var a=Array.prototype.slice.call(arguments);
-    if(typeof a[1]==='string'&&a[1].startsWith('/')&&!a[1].startsWith('//')){a[1]=B+a[1];}
+    var url=a[1];
+    if(typeof url==='string'){
+       if(url.startsWith('/')&&!url.startsWith('//')){a[1]=P+encodeURIComponent(B+url);}
+       else if(url.startsWith(B)){a[1]=P+encodeURIComponent(url);}
+    }
     return _o.apply(this,a);
   };
 
@@ -92,7 +129,11 @@ export async function GET(
     if(!el||!el.getAttribute)return;
     ['src','href','poster'].forEach(function(a){
       var v=el.getAttribute(a);
-      if(v&&v.startsWith('/')&&!v.startsWith('//')&&!v.includes('/api/')){el.setAttribute(a,B+v);}
+      if(v&&v.startsWith('/')&&!v.startsWith('//')&&!v.includes('/api/')){
+          if (el.tagName !== 'A') { // Apenas assets, não links de navegação
+              el.setAttribute(a,P+encodeURIComponent(B+v));
+          }
+      }
     });
   }
   new MutationObserver(function(ms){
