@@ -64,7 +64,9 @@ export async function GET(
 
     // 1. BASE TAG (O que resolvia lindamente a maioria das páginas normais)
     $('base').remove();
-    $('head').prepend(`<base href="${originalUrl}">`);
+    if (!isSpa) {
+       $('head').prepend(`<base href="${originalUrl}">`);
+    }
 
     // 1b. SPA ENGINE — intercepta fetch/XHR, resolve CORS e lida com hidratação do Next.js
     if (isSpa) {
@@ -127,7 +129,7 @@ export async function GET(
   // Corrige assets (src/href) adicionados dinamicamente pela SPA
   function fix(el){
     if(!el||!el.getAttribute)return;
-    ['src','href','poster'].forEach(function(a){
+    ['src','href','poster','action'].forEach(function(a){
       var v=el.getAttribute(a);
       if(v&&v.startsWith('/')&&!v.startsWith('//')&&!v.includes('/api/')){
           if (el.tagName !== 'A') { // Apenas assets, não links de navegação
@@ -139,7 +141,7 @@ export async function GET(
   new MutationObserver(function(ms){
     ms.forEach(function(m){
       m.addedNodes.forEach(function(n){
-        if(n.nodeType===1){fix(n);if(n.querySelectorAll)n.querySelectorAll('[src],[href],[poster]').forEach(fix);}
+        if(n.nodeType===1){fix(n);if(n.querySelectorAll)n.querySelectorAll('[src],[href],[poster],[action]').forEach(fix);}
       });
     });
   }).observe(document.documentElement,{childList:true,subtree:true});
@@ -224,8 +226,25 @@ export async function GET(
     $('head').append(engineScript);
 
     // 3. Proxy de Assets (Para não dar tela preta)
-    $('[src], [href]').each((_, el) => {
+    $('[src], [href], [srcset]').each((_, el) => {
       const tag = $(el).prop('tagName');
+      
+      // Lida com srcset
+      if ($(el).attr('srcset') || $(el).attr('imageSrcSet')) {
+          const attrName = $(el).attr('srcset') ? 'srcset' : 'imageSrcSet';
+          let srcset = $(el).attr(attrName) || '';
+          if (isSpa && srcset) {
+              // Converte as URLs relativas no srcset para absolutas
+              srcset = srcset.split(',').map(part => {
+                 let [url, size] = part.trim().split(/\s+/);
+                 if (url.startsWith('/') && !url.startsWith('//')) url = baseUrl + url;
+                 else if (!url.startsWith('http') && !url.startsWith('//') && !url.startsWith('data:')) url = baseUrl + '/' + url;
+                 return size ? `${url} ${size}` : url;
+              }).join(', ');
+              $(el).attr(attrName, srcset);
+          }
+      }
+
       const attr = $(el).attr('src') ? 'src' : 'href';
       let val = $(el).attr(attr) || '';
       if (!val || val.startsWith('data:') || val.startsWith('javascript:') || val.startsWith('#')) return;
@@ -234,6 +253,13 @@ export async function GET(
         const abs = val.startsWith('/') ? baseUrl + val : (val.startsWith('http') ? val : baseUrl + '/' + val);
         $(el).attr(attr, `${currentOrigin}/api/proxy?url=${encodeURIComponent(abs)}&overrideHost=${targetHost}`);
         $(el).removeAttr('integrity').removeAttr('crossorigin');
+      } else if (isSpa) {
+        // Sem a tag <base>, precisamos tornar todas as URLs relativas absolutas
+        if (val.startsWith('/') && !val.startsWith('//')) {
+            $(el).attr(attr, baseUrl + val);
+        } else if (!val.startsWith('http') && !val.startsWith('//')) {
+            $(el).attr(attr, baseUrl + '/' + val);
+        }
       }
     });
 
