@@ -145,6 +145,35 @@ export async function GET(
       });
     });
   }).observe(document.documentElement,{childList:true,subtree:true});
+
+  // INTERCEPTAR SCRIPTS/LINKS DINÂMICOS DO WEBPACK/NEXT.JS
+  var origCreateElement = document.createElement;
+  document.createElement = function(tagName) {
+     var el = origCreateElement.call(document, tagName);
+     var lowerTag = tagName.toLowerCase();
+     if (lowerTag === 'script' || lowerTag === 'link') {
+        var origSetAttribute = el.setAttribute;
+        el.setAttribute = function(name, value) {
+           if ((name === 'src' || name === 'href') && value) {
+              if (value.startsWith('/')) value = P + encodeURIComponent(B + value);
+              else if (value.startsWith(B)) value = P + encodeURIComponent(value);
+           }
+           return origSetAttribute.call(this, name, value);
+        };
+        var prop = lowerTag === 'link' ? 'href' : 'src';
+        Object.defineProperty(el, prop, {
+           set: function(val) {
+              if (val && typeof val === 'string') {
+                 if (val.startsWith('/')) val = P + encodeURIComponent(B + val);
+                 else if (val.startsWith(B)) val = P + encodeURIComponent(val);
+              }
+              origSetAttribute.call(this, prop, val);
+           },
+           get: function() { return this.getAttribute(prop); }
+        });
+     }
+     return el;
+  };
 })();
 </script>`;
       $('head').prepend(spaEngine);
