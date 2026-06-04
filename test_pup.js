@@ -1,0 +1,43 @@
+const puppeteer = require('puppeteer');
+
+(async () => {
+    console.log('Launching browser...');
+    const browser = await puppeteer.launch({ headless: 'new' });
+    const page = await browser.newPage();
+    
+    page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+    page.on('pageerror', error => console.log('PAGE ERROR:', error.message));
+    page.on('response', response => {
+        if (!response.ok()) {
+            console.log('FAILED REQUEST:', response.url(), response.status());
+        }
+    });
+
+    console.log('Navigating to page...');
+    await page.goto('https://snapfunnel.vercel.app/p/c9e44635-7cbd-497f-96b8-89a57c71181a', { waitUntil: 'networkidle2' });
+    
+    console.log('Page loaded. Clicking INICIAR button...');
+    try {
+        await page.waitForSelector('button', { timeout: 5000 });
+        const buttons = await page.$$('button');
+        let clicked = false;
+        for (const btn of buttons) {
+            const text = await page.evaluate(el => el.textContent, btn);
+            if (text.includes('INICIAR')) {
+                console.log('Clicking button: ' + text);
+                await btn.click();
+                clicked = true;
+                break;
+            }
+        }
+        if (!clicked) console.log('INICIAR button not found');
+    } catch (e) {
+        console.log('Error finding button:', e.message);
+    }
+
+    console.log('Waiting 5 seconds to observe network/console...');
+    await new Promise(r => setTimeout(r, 5000));
+    
+    console.log('Done.');
+    await browser.close();
+})();

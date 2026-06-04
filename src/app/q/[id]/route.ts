@@ -84,8 +84,59 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     
     const safeGuardV7_1 = `
       <script>window.QUIZ_REPLACEMENTS = ${JSON.stringify(replacements).replace(/</g, '\\u003c')};</script>
+      <script id="snap-sticker-capture">
+        // SnapFunnel: Captura de figurinha — roda ANTES do God Mode para ter o fetch real
+        (function() {
+          // Salva o fetch REAL antes do God Mode fazer o monkey-patch
+          window.__snapRealFetch__ = window.fetch.bind(window);
+          window.__SNAP_QUIZ_ID__ = "${params.id}";
+
+          // Intercepta sessionStorage.setItem para capturar a figurinha gerada
+          var _origSetItem = sessionStorage.setItem.bind(sessionStorage);
+          sessionStorage.setItem = function(key, value) {
+            _origSetItem(key, value);
+            try {
+              if (key === 'sticker-generated' && value && value.startsWith('data:image')) {
+                // Lê os dados preenchidos no quiz
+                var quizRaw = sessionStorage.getItem('quiz-data') || '{}';
+                var quizData = {};
+                try { quizData = JSON.parse(quizRaw); } catch(e) {}
+                // Monta os dados de nascimento se disponíveis
+                if (quizData.dia && quizData.mes && quizData.ano) {
+                  quizData.nascimento = quizData.dia + '/' + quizData.mes + '/' + quizData.ano;
+                }
+                // Envia para nossa API usando o fetch REAL (não interceptado pelo God Mode)
+                window.__snapRealFetch__('/api/sticker/save', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    imageDataUrl: value,
+                    quizId: window.__SNAP_QUIZ_ID__,
+                    quizData: {
+                      nome: quizData.nome || '',
+                      email: quizData.email || '',
+                      clube: quizData.clube || '',
+                      peso: quizData.peso || '',
+                      altura: quizData.altura || '',
+                      nascimento: quizData.nascimento || ''
+                    }
+                  })
+                }).then(function(r) {
+                  if (r.ok) { console.log('[SnapFunnel] Figurinha capturada com sucesso!'); }
+                  else { console.warn('[SnapFunnel] Falha ao salvar figurinha, status:', r.status); }
+                }).catch(function(err) {
+                  console.warn('[SnapFunnel] Erro ao salvar figurinha:', err);
+                });
+              }
+            } catch(captureErr) {
+              console.warn('[SnapFunnel] Erro no interceptor de sticker:', captureErr);
+            }
+          };
+        })();
+      </script>
       <script id="god-mode-v7">
         console.log("God Mode v7.4 Ativado - Anti-Crash + SPA Live Fetch");
+
         
         window.__PROXY_HOST__ = "${targetHost}";
         window.__PROXY_ORIGIN__ = "https://${targetHost}";

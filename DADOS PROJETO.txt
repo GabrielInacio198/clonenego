@@ -1,0 +1,3 @@
+SnapFunnel -
+
+GitHub, vercel e supabase - Wesley 
