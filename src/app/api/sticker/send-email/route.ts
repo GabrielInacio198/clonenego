@@ -2,10 +2,9 @@ import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { supabaseAdmin } from '@/lib/supabase';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 // POST manual — para reenviar e-mail pelo dashboard
 export async function POST(req: Request) {
+  const resend = new Resend(process.env.RESEND_API_KEY);
   try {
     const { leadId } = await req.json();
 
