@@ -185,7 +185,7 @@ export async function GET(
       $('head').prepend(spaEngine);
     }
 
-    // 2. Script de interceptação de Checkout — Nível Window + location.href (funciona em SPAs)
+    // 2. Script de interceptação de Checkout (Nível Window Capture + MutationObserver)
     const engineScript = `
       <script>
         (function() {
@@ -201,64 +201,59 @@ export async function GET(
 
           function isGatewayUrl(url) {
             if (!url || typeof url !== 'string') return false;
-            try {
-              var u = new URL(url);
-              var lower = u.hostname + u.pathname;
-              return GATEWAYS.some(function(g) { return lower.includes(g); });
-            } catch(e) {
-              return GATEWAYS.some(function(g) { return url.toLowerCase().includes(g); });
-            }
+            var lower = url.toLowerCase();
+            return GATEWAYS.some(function(g) { return lower.includes(g); });
           }
 
-          // ─── 1. INTERCEPTA window.location.href (o mais importante!) ────────────────
-          // A SPA da figurinha usa: window.location.href = "https://pay.hotmart.com/..."
-          try {
-            var _loc = window.location;
-            Object.defineProperty(window, 'location', {
-              configurable: true,
-              enumerable: true,
-              get: function() { return _loc; },
-              set: function(val) {
-                if (val && typeof val === 'string' && isGatewayUrl(val)) {
-                  _loc.href = CHECKOUT_URL;
-                } else {
-                  _loc.href = val;
-                }
+          function forceCheckout(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            if (e && e.stopPropagation) e.stopPropagation();
+            if (e && e.stopImmediatePropagation) e.stopImmediatePropagation();
+            // Evita redirecionamento se for o mesmo link
+            if (window.location.href !== CHECKOUT_URL) {
+              window.location.href = CHECKOUT_URL;
+            }
+            return false;
+          }
+
+          // ─── 1. INTERCEPTAÇÃO DE CLIQUES GLOBAIS (Capture Phase) ──────────────
+          // Isso roda ANTES do React ou qualquer framework processar o clique
+          window.addEventListener('click', function(e) {
+            var el = e.target;
+            var depth = 0;
+            while (el && el !== document.body && depth < 8) {
+              var tag = el.tagName;
+              var href = el.getAttribute ? (el.getAttribute('href') || '') : '';
+              var text = (el.textContent || '').trim().toUpperCase();
+              
+              // Verifica se é um botão de checkout pelo texto (muito comum em SPAs onde o botão não tem href)
+              var isCheckoutText = 
+                text.includes('OBTER MEU PLANO') || 
+                text.includes('COMPRAR AGORA') || 
+                text === 'COMPRAR' ||
+                text.includes('PAGAR COM CART') || 
+                text.includes('PAGAR COM PIX');
+
+              // Verifica se o href é de um gateway
+              var isGatewayHref = href && isGatewayUrl(href);
+              
+              // Não intercepta botões de "INICIAR" ou "QUIZ"
+              if (text.includes('INICIAR') || text.includes('QUIZ')) {
+                 el = el.parentElement;
+                 depth++;
+                 continue;
               }
-            });
-            // Intercepta também location.href diretamente
-            var _origHrefDescriptor = Object.getOwnPropertyDescriptor(Location.prototype, 'href');
-            if (_origHrefDescriptor && _origHrefDescriptor.set) {
-              Object.defineProperty(Location.prototype, 'href', {
-                configurable: true,
-                enumerable: true,
-                get: _origHrefDescriptor.get,
-                set: function(val) {
-                  if (val && typeof val === 'string' && isGatewayUrl(val)) {
-                    _origHrefDescriptor.set.call(this, CHECKOUT_URL);
-                  } else {
-                    _origHrefDescriptor.set.call(this, val);
-                  }
-                }
-              });
+
+              if (isCheckoutText || isGatewayHref || el.id === '39Kr7c') {
+                return forceCheckout(e);
+              }
+
+              el = el.parentElement;
+              depth++;
             }
-          } catch(locErr) {
-            console.warn('[SnapFunnel] location intercept error:', locErr);
-          }
+          }, { capture: true });
 
-          // ─── 2. INTERCEPTA location.assign e location.replace ────────────────────────
-          try {
-            var _origAssign = window.location.assign.bind(window.location);
-            window.location.assign = function(url) {
-              if (isGatewayUrl(url)) { _origAssign(CHECKOUT_URL); } else { _origAssign(url); }
-            };
-            var _origReplace = window.location.replace.bind(window.location);
-            window.location.replace = function(url) {
-              if (isGatewayUrl(url)) { _origReplace(CHECKOUT_URL); } else { _origReplace(url); }
-            };
-          } catch(e2) {}
-
-          // ─── 3. INTERCEPTA window.open ───────────────────────────────────────────────
+          // ─── 2. INTERCEPTA window.open ─────────────────────────────────────────
           var _origOpen = window.open;
           window.open = function(url, target, features) {
             if (url && isGatewayUrl(url.toString())) {
@@ -268,35 +263,46 @@ export async function GET(
             return _origOpen.call(this, url, target, features);
           };
 
-          // ─── 4. INTERCEPTA cliques a nível Window (captura links de gateway em SPAs) ─
-          window.addEventListener('click', function(e) {
-            var el = e.target;
-            var depth = 0;
-            while (el && el !== document.body && depth < 8) {
-              var href = el.getAttribute ? (el.getAttribute('href') || '') : '';
-              if (href && isGatewayUrl(href)) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                window.location.href = CHECKOUT_URL;
-                return false;
-              }
-              el = el.parentElement;
-              depth++;
-            }
-          }, { capture: true });
-
-          // ─── 5. PATCHER DE DOM — substitui hrefs no HTML estático ───────────────────
+          // ─── 3. PATCHER DE DOM ESTÁTICO E MUTATION OBSERVER ──────────────────
+          // Substitui atributos no HTML diretamente (ótimo para sites WordPress/clássicos)
           function patchDom() {
+            // 1. Tag A com href de gateway
             document.querySelectorAll('a[href]').forEach(function(el) {
               var h = el.getAttribute('href') || '';
               if (h && h !== CHECKOUT_URL && isGatewayUrl(h)) {
                 el.setAttribute('href', CHECKOUT_URL);
                 el.setAttribute('target', '_self');
                 el.removeAttribute('rel');
+                el.dataset.patched = 'true';
+              }
+            });
+
+            // 2. Botões clássicos que precisam virar link
+            document.querySelectorAll('button').forEach(function(btn) {
+              var text = (btn.textContent || '').trim().toUpperCase();
+              if (text.includes('OBTER MEU PLANO') || text.includes('COMPRAR AGORA') || btn.id === '39Kr7c') {
+                if (!btn.dataset.patched) {
+                  var link = document.createElement('a');
+                  link.href = CHECKOUT_URL;
+                  link.innerHTML = btn.innerHTML;
+                  link.className = btn.className;
+                  link.id = btn.id;
+                  link.dataset.patched = 'true';
+                  link.style.cssText = btn.style.cssText;
+                  link.style.textDecoration = 'none';
+                  
+                  var displayStyle = window.getComputedStyle(btn).display;
+                  if (displayStyle === 'inline' || displayStyle === '') {
+                     link.style.display = 'inline-block';
+                  }
+                  
+                  link.onclick = forceCheckout;
+                  btn.parentNode.replaceChild(link, btn);
+                }
               }
             });
           }
+
           document.addEventListener('DOMContentLoaded', patchDom);
           var obs = new MutationObserver(patchDom);
           var startObs = function() {
