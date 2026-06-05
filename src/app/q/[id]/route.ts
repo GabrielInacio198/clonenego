@@ -38,8 +38,8 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         if (response.ok) {
             rawHtml = await response.text();
             
-            // Opcional: Atualiza o backup no banco em background (se for grande o suficiente)
-            if (rawHtml.length > 500) {
+            // Opcional: Atualiza o backup no banco em background apenas se o HTML mudou
+            if (rawHtml.length > 500 && themeConfig.rawHtml !== rawHtml) {
                supabaseAdmin.from('quizzes').update({
                   theme_config: { ...themeConfig, rawHtml }
                }).eq('id', params.id).then();
