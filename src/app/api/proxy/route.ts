@@ -66,10 +66,13 @@ export async function GET(req: NextRequest) {
         });
       }
 
+      // Cache de 1 hora na CDN para JS e CSS (assets estáticos raramente mudam)
+      responseHeaders.set('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
       return new NextResponse(content, { headers: responseHeaders });
     }
 
-    // Para imagens e outros assets binários
+    // Para imagens e outros assets binários — cache de 24 horas na CDN
+    responseHeaders.set('Cache-Control', 's-maxage=86400, stale-while-revalidate=604800');
     const blob = await response.blob();
     return new NextResponse(blob, { headers: responseHeaders });
 
