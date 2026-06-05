@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { supabaseAdmin } from '@/lib/supabase';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(req: Request) {
+  const resend = new Resend(process.env.RESEND_API_KEY);
   try {
     const body = await req.json();
 
@@ -68,7 +67,7 @@ export async function POST(req: Request) {
       .eq('id', lead.id);
 
     // Envia e-mail com a figurinha
-    const emailResult = await sendStickerEmail(lead);
+    const emailResult = await sendStickerEmail(lead, resend);
 
     if (emailResult.success) {
       await supabaseAdmin
@@ -89,7 +88,7 @@ export async function POST(req: Request) {
   }
 }
 
-async function sendStickerEmail(lead: any): Promise<{ success: boolean; error?: string }> {
+async function sendStickerEmail(lead: any, resend: Resend): Promise<{ success: boolean; error?: string }> {
   try {
     const nomeDisplay = lead.nome ? lead.nome.toUpperCase() : 'CRAQUE';
 
